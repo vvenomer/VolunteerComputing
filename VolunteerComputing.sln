@@ -1,0 +1,87 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.31004.235
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "VolunteerComputing.Client", "VolunteerComputing.Client\VolunteerComputing.Client.csproj", "{E8B3282B-65D7-4F3C-B38B-E580AC404353}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "VolunteerComputing.TaskServer", "VolunteerComputing.TaskServer\VolunteerComputing.TaskServer.csproj", "{DD840021-0498-4EFD-AE4B-F90280901BC0}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "VolunteerComputing.ManagementServer.Server", "VolunteerComputing.ManagementServer\Server\VolunteerComputing.ManagementServer.Server.csproj", "{E4FE2D80-379F-4140-9E09-14A753E835D6}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "VolunteerComputing.ManagementServer.Client", "VolunteerComputing.ManagementServer\Client\VolunteerComputing.ManagementServer.Client.csproj", "{08AD94B7-A45E-405B-B9DD-1B85EF31A85A}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "VolunteerComputing.Shared", "VolunteerComputing.ManagementServer\Shared\VolunteerComputing.Shared.csproj", "{A82DF35E-954C-4568-B2C8-38C8ADA7DCB6}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "CollatzExample", "CollatzExample", "{866FD197-F891-4D45-9005-C3A1F823A76E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Collatz.Generator", "CollatzExample\Collatz.Generator\Collatz.Generator.csproj", "{5CDB1949-62F3-4253-BAEA-93BE3CEE441B}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VolunteerComputing.ImplementationHelpers", "VolunteerComputing.ImplementationHelpers\VolunteerComputing.ImplementationHelpers.csproj", "{300B9D42-FBFA-475B-A62D-BCCF2DC169AF}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Collatz.Shared", "CollatzExample\Collatz.Common\Collatz.Shared.csproj", "{D444970D-D156-4D92-9778-041643909E72}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Collatz.Calculator", "CollatzExample\Collatz.Calculator\Collatz.Calculator.csproj", "{708FEE82-CB2F-49A4-AC88-5B424DD2279A}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Collatz.Merger", "CollatzExample\Collatz.Merger\Collatz.Merger.csproj", "{585653BD-1EA1-4950-AD16-EC0633BB8EB5}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{E8B3282B-65D7-4F3C-B38B-E580AC404353}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E8B3282B-65D7-4F3C-B38B-E580AC404353}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E8B3282B-65D7-4F3C-B38B-E580AC404353}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E8B3282B-65D7-4F3C-B38B-E580AC404353}.Release|Any CPU.Build.0 = Release|Any CPU
+		{DD840021-0498-4EFD-AE4B-F90280901BC0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DD840021-0498-4EFD-AE4B-F90280901BC0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DD840021-0498-4EFD-AE4B-F90280901BC0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DD840021-0498-4EFD-AE4B-F90280901BC0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E4FE2D80-379F-4140-9E09-14A753E835D6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E4FE2D80-379F-4140-9E09-14A753E835D6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E4FE2D80-379F-4140-9E09-14A753E835D6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E4FE2D80-379F-4140-9E09-14A753E835D6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{08AD94B7-A45E-405B-B9DD-1B85EF31A85A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{08AD94B7-A45E-405B-B9DD-1B85EF31A85A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{08AD94B7-A45E-405B-B9DD-1B85EF31A85A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{08AD94B7-A45E-405B-B9DD-1B85EF31A85A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A82DF35E-954C-4568-B2C8-38C8ADA7DCB6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A82DF35E-954C-4568-B2C8-38C8ADA7DCB6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A82DF35E-954C-4568-B2C8-38C8ADA7DCB6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A82DF35E-954C-4568-B2C8-38C8ADA7DCB6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5CDB1949-62F3-4253-BAEA-93BE3CEE441B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5CDB1949-62F3-4253-BAEA-93BE3CEE441B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5CDB1949-62F3-4253-BAEA-93BE3CEE441B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5CDB1949-62F3-4253-BAEA-93BE3CEE441B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{300B9D42-FBFA-475B-A62D-BCCF2DC169AF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{300B9D42-FBFA-475B-A62D-BCCF2DC169AF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{300B9D42-FBFA-475B-A62D-BCCF2DC169AF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{300B9D42-FBFA-475B-A62D-BCCF2DC169AF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D444970D-D156-4D92-9778-041643909E72}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D444970D-D156-4D92-9778-041643909E72}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D444970D-D156-4D92-9778-041643909E72}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D444970D-D156-4D92-9778-041643909E72}.Release|Any CPU.Build.0 = Release|Any CPU
+		{708FEE82-CB2F-49A4-AC88-5B424DD2279A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{708FEE82-CB2F-49A4-AC88-5B424DD2279A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{708FEE82-CB2F-49A4-AC88-5B424DD2279A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{708FEE82-CB2F-49A4-AC88-5B424DD2279A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{585653BD-1EA1-4950-AD16-EC0633BB8EB5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{585653BD-1EA1-4950-AD16-EC0633BB8EB5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{585653BD-1EA1-4950-AD16-EC0633BB8EB5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{585653BD-1EA1-4950-AD16-EC0633BB8EB5}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{5CDB1949-62F3-4253-BAEA-93BE3CEE441B} = {866FD197-F891-4D45-9005-C3A1F823A76E}
+		{D444970D-D156-4D92-9778-041643909E72} = {866FD197-F891-4D45-9005-C3A1F823A76E}
+		{708FEE82-CB2F-49A4-AC88-5B424DD2279A} = {866FD197-F891-4D45-9005-C3A1F823A76E}
+		{585653BD-1EA1-4950-AD16-EC0633BB8EB5} = {866FD197-F891-4D45-9005-C3A1F823A76E}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {FC29D880-921C-438F-935F-64545D185586}
+	EndGlobalSection
+EndGlobal

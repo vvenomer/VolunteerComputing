@@ -1,0 +1,263 @@
+﻿@page "/"
+@using System.IO
+@using VolunteerComputing.Shared.Models
+@inject HttpClient Http
+<h1>Hello, world!</h1>
+
+<EditForm Model="@ProjectName">
+    Project Name
+    <input @bind="ProjectName" /><br>
+
+    @foreach (var packetType in packetTypes)
+    {
+        var localPacketType = packetType;
+        <InputText @bind-Value="packetType.Type" />
+        <text>Should aggregate</text>
+        <InputCheckbox @bind-Value="packetType.Aggregable" />
+        <button class="btn btn-primary" @onchange="() => RemovePacketType(localPacketType)">Remove</button><br>
+    }
+    <button class="btn btn-primary" @onclick="AddPacketType">Add packet type</button><br>
+
+    @for (int i = 0; i < computeTasks.Count; i++)
+    {
+        var locali = i;
+        var computeTask = computeTasks[locali];
+
+        @foreach (var inputType in computeTask.PacketTypes.Where(p => p.IsInput).Select(p => p.PacketType))
+        {
+            var localInputType = inputType;
+            <text>Input id: </text> @inputType.Type
+            <button class="btn btn-primary" @onclick="() => RemoveInput(localInputType, locali)">Remove</button>
+        }
+
+        <select @bind="newInputTypes[locali]">
+            <option disabled selected> --- </option>
+            @foreach (var packetType in packetTypes)
+            {
+                <option value="@packetType.Type">@packetType.Type</option>
+            }
+        </select>
+        <button class="btn btn-primary" @onclick="() => AddInput(locali)">Add input</button><br>
+        @foreach (var outputType in computeTask.PacketTypes.Where(p => !p.IsInput).Select(p => p.PacketType))
+        {
+            var localOutputType = outputType;
+            <text>Output id: </text> @outputType.Type
+            <button class="btn btn-primary" @onclick="() => RemoveOutput(localOutputType, locali)">Remove</button>
+        }
+        <select @bind="newOutputTypes[locali]">
+            <option disabled selected> --- </option>
+            @foreach (var packetType in packetTypes)
+            {
+                <option value="@packetType.Type">@packetType.Type</option>
+            }
+        </select>
+        <button class="btn btn-primary" @onclick="() => AddOutput(locali)">Add output</button><br>
+
+        <text>Windows Cpu:</text><InputFile OnChange="@((e) => LoadFile(e, locali, true, true))" /><br>
+        <text>Windows Gpu:</text><InputFile OnChange="@((e) => LoadFile(e, locali, true, false))" /><br>
+        <text>Linux Cpu:</text><InputFile OnChange="@((e) => LoadFile(e, locali, false, true))" /><br>
+        <text>Linux Gpu:</text><InputFile OnChange="@((e) => LoadFile(e, locali, false, false))" /><br>
+        <text>Is .zip file?</text><input type="checkbox" @bind="areZipFiles[locali]"/>
+        @if (areZipFiles[locali])
+        {
+            <text>Exe name:</text><InputText @bind-Value="computeTask.ExeFilename" />
+        }
+        <br><br>
+    }
+    <button class="btn btn-primary" @onclick="AddComputeTask">Add compute task</button><br>
+    <button class="btn btn-primary" @onclick="Save">Save</button><br>
+
+    Create new packet
+    <select @bind="packetType">
+        <option disabled selected value=""> --- </option>
+        @foreach (var packetType in packetTypes)
+        {
+            <option value="@packetType.Type">@packetType.Type</option>
+        }
+    </select>
+    <InputText @bind-Value="packetData" />
+    <button class="btn btn-primary" @onclick="SendPacket">Create new packet</button>
+</EditForm>
+@code
+{
+    List<ComputeTask> computeTasks = new List<ComputeTask>();
+    List<PacketType> packetTypes = new List<PacketType>();
+    List<string> newInputTypes = new List<string>();
+    List<string> newOutputTypes = new List<string>();
+    List<bool> areZipFiles = new List<bool>();
+    string packetType = "";
+    string packetData = "";
+    string ProjectName { get; set; } = "";
+    long maxSize = 1024 * 1024;
+
+    protected override async Task OnInitializedAsync()
+    {
+        ProjectName = "collatz";
+
+        packetTypes.Add(new PacketType { Type = "input" });
+        packetTypes.Add(new PacketType { Type = "numbers" });
+        packetTypes.Add(new PacketType { Type = "result", Aggregable = true });
+
+        computeTasks.Add(new ComputeTask
+        {
+            PacketTypes = new List<PacketTypeToComputeTask>
+{
+                new PacketTypeToComputeTask { IsInput = true, PacketType = packetTypes[0] },
+                new PacketTypeToComputeTask { IsInput = false, PacketType =packetTypes[0] },
+                new PacketTypeToComputeTask { IsInput = false, PacketType =packetTypes[1] },
+            }
+        });
+        computeTasks.Add(new ComputeTask
+        {
+            PacketTypes = new List<PacketTypeToComputeTask>
+{
+                new PacketTypeToComputeTask { IsInput = true, PacketType = packetTypes[1] },
+                new PacketTypeToComputeTask { IsInput = false, PacketType =packetTypes[2] },
+            },
+            ExeFilename = "Collatz.Calculator.exe"
+        });
+        computeTasks.Add(new ComputeTask
+        {
+            PacketTypes = new List<PacketTypeToComputeTask>
+{
+                new PacketTypeToComputeTask { IsInput = true, PacketType = packetTypes[2] },
+                new PacketTypeToComputeTask { IsInput = false, PacketType =packetTypes[2] },
+            }
+        });
+        newInputTypes.Add("");
+        newInputTypes.Add("");
+        newInputTypes.Add("");
+        newOutputTypes.Add("");
+        newOutputTypes.Add("");
+        newOutputTypes.Add("");
+        areZipFiles.Add(false);
+        areZipFiles.Add(true);
+        areZipFiles.Add(false);
+
+        packetType = packetTypes[0].Type;
+        packetData = "{ \"Start\": 2, \"End\": 10000000, \"NumberOfResultsInPacket\": 262144, \"NumberOfPackets\": 10 }";
+    }
+
+    async Task LoadFile(InputFileChangeEventArgs e, int i, bool windows, bool cpu)
+    {
+        var content = await StreamTo64(e
+            .GetMultipleFiles()
+            .First()
+            .OpenReadStream(maxSize));
+        if (windows)
+        {
+            if (cpu)
+                computeTasks[i].WindowsCpuProgram = content;
+            else
+                computeTasks[i].WindowsGpuProgram = content;
+        }
+        else
+        {
+            if (cpu)
+                computeTasks[i].LinuxCpuProgram = content;
+            else
+                computeTasks[i].LinuxGpuProgram = content;
+        }
+    }
+
+    async Task<string> StreamTo64(Stream stream)
+    {
+        using var memoryStream = new MemoryStream();
+        await stream.CopyToAsync(memoryStream);
+        var bytes = memoryStream.ToArray();
+        return Convert.ToBase64String(bytes);
+    }
+
+    void AddPacketType()
+    {
+        Console.WriteLine("Add packet");
+        packetTypes.Add(new PacketType());
+    }
+    void AddComputeTask()
+    {
+        Console.WriteLine("Add task");
+        newInputTypes.Add("");
+        newOutputTypes.Add("");
+        computeTasks.Add(new ComputeTask() { PacketTypes = new List<PacketTypeToComputeTask>() });
+    }
+
+    void RemovePacketType(PacketType packetType)
+    {
+        packetTypes.Remove(packetType);
+    }
+
+    void AddInput(int i)
+    {
+        Console.WriteLine($"i: {i}, packetType: {newInputTypes[i]}");
+        computeTasks[i].PacketTypes.Add(new PacketTypeToComputeTask() { IsInput = true, PacketType = packetTypes.FirstOrDefault(t => t.Type == newInputTypes[i]) });
+    }
+
+    void RemoveInput(PacketType packetType, int i)
+    {
+        computeTasks[i].PacketTypes.Remove(computeTasks[i].PacketTypes.FirstOrDefault(p => p.IsInput && p.PacketType == packetType));
+    }
+
+    void AddOutput(int i)
+    {
+        computeTasks[i].PacketTypes.Add(new PacketTypeToComputeTask() { IsInput = false, PacketType = packetTypes.FirstOrDefault(t => t.Type == newOutputTypes[i]) });
+    }
+
+    void RemoveOutput(PacketType packetType, int i)
+    {
+        computeTasks[i].PacketTypes.Remove(computeTasks[i].PacketTypes.FirstOrDefault(p => !p.IsInput && p.PacketType == packetType));
+    }
+
+    async Task Save()
+    {
+        var project = new Project { Name = ProjectName };
+        var res = await Http.PostAsJsonAsync("api/Projects", project);
+        if (!res.IsSuccessStatusCode)
+            Console.WriteLine("Error saving project: " + res.StatusCode);
+        res = await Http.PostAsJsonAsync("api/PacketTypes", packetTypes
+        .Select(p => new PacketType() { Type = p.Type, Aggregable = p.Aggregable, Project = project })
+        .ToList());
+        if (!res.IsSuccessStatusCode)
+            Console.WriteLine("Error saving types: " + res.StatusCode);
+
+        var parsedComputeTasks = computeTasks.Select(c => new ComputeTask
+        {
+            WindowsCpuProgram = c.WindowsCpuProgram,
+            WindowsGpuProgram = c.WindowsGpuProgram,
+            LinuxCpuProgram = c.LinuxCpuProgram,
+            LinuxGpuProgram = c.LinuxGpuProgram,
+            ExeFilename = c.ExeFilename,
+            PacketTypes = c.PacketTypes.Select(t => new PacketTypeToComputeTask
+            {
+                IsInput = t.IsInput,
+                PacketType = new PacketType
+                {
+                    Aggregable = t.PacketType.Aggregable,
+                    Type = t.PacketType.Type,
+                    Project = project
+                }
+            }).ToList()
+        });
+
+        res = await Http.PostAsJsonAsync("api/ComputeTasks", parsedComputeTasks);
+        if (!res.IsSuccessStatusCode)
+            Console.WriteLine("Error saving tasks: " + res.StatusCode);
+    }
+
+    async Task SendPacket()
+    {
+        var type = packetTypes.FirstOrDefault(t => t.Type == packetType);
+        Console.WriteLine("data: " + packetData + " type: " + packetType);
+        Console.WriteLine("Type: " + type?.Type + " agr: " + type?.Aggregable);
+        var packet = new Packet
+        {
+            Data = packetData,
+            Type = new PacketType
+            {
+                Type = type.Type,
+                Aggregable = type.Aggregable,
+                Project = new Project { Name = ProjectName }
+            }
+        };
+        await Http.PostAsJsonAsync("api/Packets", packet);
+    }
+}
