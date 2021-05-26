@@ -113,6 +113,8 @@ namespace VolunteerComputing.Client
                 }
 
                 File.WriteAllText(inputFilePath, data);
+                
+                var stopwatch = Stopwatch.StartNew();
 
                 var process = Process.Start(new ProcessStartInfo
                 {
@@ -125,18 +127,19 @@ namespace VolunteerComputing.Client
                 //process.OutputDataReceived += (o, args) => Console.WriteLine(args.Data);
                 //process.ErrorDataReceived += (o, args) => Console.WriteLine("Error: " + args.Data);
                 await process.WaitForExitAsync();
-
+                stopwatch.Stop();
+                var time = stopwatch.Elapsed;
                 if (!File.Exists(outputFilePath))
                 {
-                    Console.WriteLine("Something went wrong"); //to do - handle
+                    Console.WriteLine($"Something went wrong after {time}"); //to do - handle
                                                                //send message, that failed
                     return;
                 }
                 var result = File.ReadAllText(outputFilePath);
                 File.Delete(inputFilePath);
                 File.Delete(outputFilePath);
-                Console.WriteLine($"Finished work, sending results");
-                await connection.SendAsync("SendResult", result, programId, useCpu);
+                Console.WriteLine($"Finished work after {time}, sending results");
+                await connection.SendAsync("SendResult", result, programId, useCpu, time.TotalSeconds, 0.0);
             }
             catch (Exception ex)
             {

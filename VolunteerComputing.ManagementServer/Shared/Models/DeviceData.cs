@@ -1,4 +1,6 @@
-﻿namespace VolunteerComputing.Shared.Models
+﻿using System.Collections.Generic;
+
+namespace VolunteerComputing.Shared.Models
 {
     public class DeviceData
     {
@@ -10,7 +12,7 @@
 
         public bool GpuWorks { get; set; }
         public bool GpuAvailable { get; set; }
-        //energy efficient
-        //speed efficient
+        
+        public ICollection<DeviceStat> DeviceStats { get; set; }
     }
 }

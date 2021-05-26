@@ -1,8 +1,3 @@
 task sever should connect to management server - not the other way around
-compute task should have multiple versions of programs for Linux/windows
-separate downloaded programs into folders
 work should be finished by management server - not task server
-
-
-allow for multiple files
-implement important stuff in cpp (cuda + openmp)
+...
