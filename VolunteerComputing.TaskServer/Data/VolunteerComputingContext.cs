@@ -23,9 +23,10 @@ namespace VolunteerComputing.TaskServer.Data
         public virtual DbSet<ComputeTask> ComputeTask { get; set; }
         public virtual DbSet<Packet> Packets { get; set; }
         public virtual DbSet<PacketType> PacketTypes { get; set; }
-        public DbSet<PacketTypeToComputeTask> PacketTypeToComputeTasks { get; set; }
+        public virtual DbSet<PacketTypeToComputeTask> PacketTypeToComputeTasks { get; set; }
         public virtual DbSet<DeviceData> Devices { get; set; }
-        public DbSet<Project> Projects { get; set; }
+        public virtual DbSet<DeviceStat> DeviceStats { get; set; }
+        public virtual DbSet<Project> Projects { get; set; }
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {

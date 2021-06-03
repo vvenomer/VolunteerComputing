@@ -24,7 +24,7 @@ namespace VolunteerComputing.TaskServer.Hubs
         {
             Console.WriteLine(exception);
             var device = dbContext.Devices.FirstOrDefault(d => d.ConnectionId == Context.ConnectionId);
-            if(device is not null)
+            if (device is not null)
             {
                 dbContext.Devices.Remove(device);
                 await dbContext.SaveChangesAsync();
@@ -32,22 +32,33 @@ namespace VolunteerComputing.TaskServer.Hubs
             await base.OnDisconnectedAsync(exception);
         }
 
-        public async Task SendResult(string jsonResult, int programId, bool cpu)
+        public async Task SendResult(string jsonResult, int programId, bool cpu, double time, double energy)
         {
-            var thisDevice = dbContext.Devices.FirstOrDefault(d => d.ConnectionId == Context.ConnectionId);
+            //update device data
+            var thisDevice = dbContext.Devices.Include(x => x.DeviceStats).ThenInclude(x => x.ComputeTask).FirstOrDefault(d => d.ConnectionId == Context.ConnectionId);
             if (cpu)
                 thisDevice.CpuWorks = false;
             else
                 thisDevice.GpuWorks = false;
-            var outputTypes = dbContext.ComputeTask
+            //save speed?
+            var computeTask = dbContext.ComputeTask
                 .Include(x => x.PacketTypes)
                 .ThenInclude(x => x.PacketType)
-                .FirstOrDefault(t => t.Id == programId)
+                .FirstOrDefault(t => t.Id == programId);
+
+            var stats = thisDevice.DeviceStats.FirstOrDefault(x => x.ComputeTask == computeTask && x.IsCpu == cpu)
+                ?? new DeviceStat(thisDevice, computeTask, cpu);
+            stats.AddStat(time, energy);
+
+            if (dbContext.Entry(stats).State == EntityState.Detached)
+                dbContext.Add(stats);
+            
+            //get and save packets from result
+            var results = JsonConvert.DeserializeObject<List<List<string>>>(jsonResult);
+            var newPackets = computeTask
                 .PacketTypes
                 .Where(p => !p.IsInput)
-                .Select(p => p.PacketType);
-            var results = JsonConvert.DeserializeObject<List<List<string>>>(jsonResult);
-            var newPackets = outputTypes
+                .Select(p => p.PacketType)
                 .Zip(results)
                 .Select(x => x.Second
                     .Select(d => ShareAPI.SaveTextToShare(d))
@@ -74,9 +85,8 @@ namespace VolunteerComputing.TaskServer.Hubs
             return new ProgramData { Program = program, ExeName = task.ExeFilename };
         }
 
-        public async Task SendDeviceData(bool isWindows, bool hasCpu, bool hasGpu /*... energy, speed ...*/)
+        public async Task SendDeviceData(bool isWindows, bool hasCpu, bool hasGpu)
         {
-            //if doesn't have gpu, it might as well be always working
             dbContext.Devices.Add(new DeviceData()
             {
                 ConnectionId = Context.ConnectionId,
@@ -85,7 +95,6 @@ namespace VolunteerComputing.TaskServer.Hubs
                 IsWindows = isWindows
             });
             await dbContext.SaveChangesAsync();
-            //...
         }
 
     }

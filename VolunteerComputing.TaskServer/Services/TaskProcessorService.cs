@@ -20,7 +20,8 @@ namespace VolunteerComputing.TaskServer.Services
     {
         readonly IHubContext<TaskServerHub, ITaskServerHubMessages> taskServerHub;
         private readonly IServiceScopeFactory scopeFactory;
-
+        readonly static Random random = new();
+        static double changeToUseNewDevice = 0.5;
         public static bool ShouldStartWork { get; set; }
 
         public TaskProcessorService(IHubContext<TaskServerHub, ITaskServerHubMessages> taskServerHub, IServiceScopeFactory scopeFactory)
@@ -88,7 +89,7 @@ namespace VolunteerComputing.TaskServer.Services
                     {
                         Console.SetCursorPosition(0, 2);
                         Console.WriteLine("Finding devices" + Dots(ref l, 3));
-                        devices = context.Devices.Where(d => (d.CpuAvailable && !d.CpuWorks) || (d.GpuAvailable && !d.GpuWorks));
+                        devices = context.Devices.Include(d => d.DeviceStats).Where(d => (d.CpuAvailable && !d.CpuWorks) || (d.GpuAvailable && !d.GpuWorks));
                         //wait if not found
                         if (!devices.Any())
                         {
@@ -209,19 +210,52 @@ namespace VolunteerComputing.TaskServer.Services
 
         private static (DeviceData device, bool isCpu) ChooseDevice(IEnumerable<DeviceData> aviableDevices, ComputeTask computeTask)
         {
-            var windowsCpu = computeTask.WindowsCpuProgram is not null;
-            var windowsGpu = computeTask.WindowsGpuProgram is not null;
-            var linuxCpu = computeTask.LinuxCpuProgram is not null;
-            var linuxGpu = computeTask.LinuxGpuProgram is not null;
+            List<(DeviceData device, bool isCpu, double speed)> devices = new();
 
-            var device = aviableDevices.Select(d => (device:d,
-                windowsCpu:(windowsCpu && d.IsWindows && d.CpuAvailable && !d.CpuWorks),
-                windowsGpu:(windowsGpu && d.IsWindows && d.GpuAvailable && !d.GpuWorks),
-                linuxCpu:(linuxCpu && !d.IsWindows && d.CpuAvailable && !d.CpuWorks),
-                linuxGpu:(linuxGpu && !d.IsWindows && d.GpuAvailable && !d.GpuWorks)))
-                .FirstOrDefault(x => x.windowsCpu || x.windowsGpu || x.linuxCpu || x.linuxGpu);
+            if(computeTask.WindowsCpuProgram is not null)
+            {
+                var newDevices = aviableDevices
+                    .Where(d => d.IsWindows && d.CpuAvailable && !d.CpuWorks)
+                    .Select(d => (device: d, isCpu: true, speed: d.DeviceStats.Where(s => s.ComputeTask == computeTask && s.IsCpu).Select(s => s.TimeSum / s.Count).FirstOrDefault()));
+                devices.AddRange(newDevices);
+            }
+            if (computeTask.WindowsGpuProgram is not null)
+            {
+                var newDevices = aviableDevices
+                    .Where(d => d.IsWindows && d.GpuAvailable && !d.GpuWorks)
+                    .Select(d => (device: d, isCpu: false, speed: d.DeviceStats.Where(s => s.ComputeTask == computeTask && !s.IsCpu).Select(s => s.TimeSum / s.Count).FirstOrDefault()));
+                devices.AddRange(newDevices);
+            }
+            if (computeTask.LinuxCpuProgram is not null)
+            {
+                var newDevices = aviableDevices
+                    .Where(d => !d.IsWindows && d.CpuAvailable && !d.CpuWorks)
+                    .Select(d => (device: d, isCpu: true, speed: d.DeviceStats.Where(s => s.ComputeTask == computeTask && s.IsCpu).Select(s => s.TimeSum / s.Count).FirstOrDefault()));
+                devices.AddRange(newDevices);
+            }
+            if (computeTask.LinuxGpuProgram is not null)
+            {
+                var newDevices = aviableDevices
+                    .Where(d => !d.IsWindows && d.GpuAvailable && !d.GpuWorks)
+                    .Select(d => (device: d, isCpu: false, speed: d.DeviceStats.Where(s => s.ComputeTask == computeTask && !s.IsCpu).Select(s => s.TimeSum / s.Count).FirstOrDefault()));
+                devices.AddRange(newDevices);
+            }
 
-            return (device.device, !device.windowsGpu && !device.linuxGpu);
+            (DeviceData device, bool isCpu, double speed) device;
+            if (devices.Any(d => d.speed == 0) && devices.Any(d => d.speed > 0) && random.NextDouble() < changeToUseNewDevice)
+            {
+                //there are some devices already checked and some new ones - try new one
+                device = devices
+                    .FirstOrDefault(d => d.speed == 0);
+            }
+            else
+            {
+                device = devices
+                    .OrderBy(d => d.speed)
+                    .FirstOrDefault();
+            }
+
+            return (device.device, device.isCpu);
         }
 
         private static IEnumerable<TaskWithPackets> FindComputeTasksAndPackets(IEnumerable<Packet> packets, IEnumerable<ComputeTask> computeTasks)
