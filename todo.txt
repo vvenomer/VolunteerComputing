@@ -1,3 +1,0 @@
-task sever should connect to management server - not the other way around
-work should be finished by management server - not task server
-...

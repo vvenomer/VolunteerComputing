@@ -63,9 +63,9 @@ namespace VolunteerComputing.Client
             } while (true);
 
             conn.On("SendTaskAsync", (int programId, string data, bool useCpu) => { Task.Run(async () => await CalculateTask(conn, programId, data, useCpu)); } );
-            
-            await conn.SendAsync("SendDeviceData", isWindows, isIntel, isCuda);
 
+            var id = await conn.InvokeAsync<int>("SendDeviceData", Storage.Id, isWindows, isIntel, isCuda);
+            Storage.Id = id;
             while (true) await Task.Delay(500);
         }
 
@@ -120,9 +120,9 @@ namespace VolunteerComputing.Client
                 {
                     FileName = file,
                     Arguments = $"--inputFile {inputFile} --outputFile {outputFile}",
-                    WorkingDirectory = dir
-                    //RedirectStandardError = true,
-                    //RedirectStandardOutput = true
+                    WorkingDirectory = dir,
+                    RedirectStandardError = true,
+                    RedirectStandardOutput = true
                 });
                 //process.OutputDataReceived += (o, args) => Console.WriteLine(args.Data);
                 //process.ErrorDataReceived += (o, args) => Console.WriteLine("Error: " + args.Data);
