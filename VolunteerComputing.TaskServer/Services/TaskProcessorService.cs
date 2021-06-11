@@ -39,7 +39,8 @@ namespace VolunteerComputing.TaskServer.Services
                 {
                     while (!ShouldStartWork)
                     {
-                        Console.SetCursorPosition(0, 0);
+                        Console.Clear();
+                        //Console.SetCursorPosition(0, 0);
                         Console.WriteLine("Waiting for work" + Dots(ref i, 3));
                         await Task.Delay(2000, stoppingToken);
                     }
