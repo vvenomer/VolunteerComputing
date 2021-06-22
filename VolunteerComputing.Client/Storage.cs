@@ -1,29 +1,78 @@
 ﻿using Newtonsoft.Json;
-using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace VolunteerComputing.Client
 {
     class Storage
     {
-        static string userDataPath = "userData.txt";
+        static string userDataPath = "userData.json";
         static UserData userData;
-        public static int? Id
+        public static int Id
         {
             get
             {
                 InitUserData();
-                return userData?.Id;
+                return userData.Id;
             }
             set
             {
-                if(value.HasValue && value.Value != userData?.Id)
+                InitUserData();
+                if (value != userData?.Id)
                 {
-                    userData.Id = value.Value;
+                    userData.Id = value;
+                    SaveUserData();
+                }
+            }
+        }
+
+        public static bool HasSentInitMeasurements
+        {
+            get
+            {
+                InitUserData();
+                return userData.HasSentInitMeasurements;
+            }
+            set
+            {
+                InitUserData();
+                if (value != userData.HasSentInitMeasurements)
+                {
+                    userData.HasSentInitMeasurements = value;
+                    SaveUserData();
+                }
+            }
+        }
+
+        public static string CpuEnergyToolPath
+        {
+            get
+            {
+                InitUserData();
+                return userData.CpuEnergyToolPath;
+            }
+            set
+            {
+                InitUserData();
+                if (value != userData.CpuEnergyToolPath)
+                {
+                    userData.CpuEnergyToolPath = value;
+                    SaveUserData();
+                }
+            }
+        }
+        public static string GpuEnergyToolPath
+        {
+            get
+            {
+                InitUserData();
+                return userData.GpuEnergyToolPath;
+            }
+            set
+            {
+                InitUserData();
+                if (value != userData.GpuEnergyToolPath)
+                {
+                    userData.GpuEnergyToolPath = value;
                     SaveUserData();
                 }
             }
@@ -31,10 +80,15 @@ namespace VolunteerComputing.Client
 
         static void InitUserData()
         {
-            if (userData is null && File.Exists(userDataPath))
+            if (File.Exists(userDataPath))
             {
-                userData = JsonConvert.DeserializeObject<UserData>(File.ReadAllText(userDataPath));
+                if (userData is null)
+                {
+                    userData = JsonConvert.DeserializeObject<UserData>(File.ReadAllText(userDataPath));
+                }
             }
+            else
+                userData = new UserData();
         }
 
         static void SaveUserData()
@@ -45,6 +99,9 @@ namespace VolunteerComputing.Client
         class UserData
         {
             public int Id { get; set; }
+            public bool HasSentInitMeasurements { get; set; }
+            public string CpuEnergyToolPath { get; set; }
+            public string GpuEnergyToolPath { get; set; }
         }
     }
 }

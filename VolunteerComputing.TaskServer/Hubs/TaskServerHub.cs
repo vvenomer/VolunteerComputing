@@ -85,28 +85,17 @@ namespace VolunteerComputing.TaskServer.Hubs
             return new ProgramData { Program = program, ExeName = task.ExeFilename };
         }
 
-        public async Task<int> SendDeviceData(int? id, bool isWindows, bool hasCpu, bool hasGpu)
+        public async Task<int> SendDeviceData(DeviceData device)
         {
-            DeviceData device;
-            if(id.HasValue)
+            if (device.Id != 0)
+                device = dbContext.Devices.Find(device.Id);
+
+            device.ConnectionId = Context.ConnectionId;
+            device.CpuWorks = false;
+            device.GpuWorks = false;
+
+            if (device.Id == 0)
             {
-                device = dbContext.Devices.Find(id);
-                device.ConnectionId = Context.ConnectionId;
-                device.CpuAvailable = hasCpu;
-                device.CpuWorks = false;
-                device.GpuAvailable = hasGpu;
-                device.GpuWorks = false;
-                device.IsWindows = isWindows; //shouldn't change, but why not
-            }
-            else
-            {
-                device = new DeviceData()
-                {
-                    ConnectionId = Context.ConnectionId,
-                    CpuAvailable = hasCpu,
-                    GpuAvailable = hasGpu,
-                    IsWindows = isWindows
-                };
                 dbContext.Devices.Add(device);
             }
             await dbContext.SaveChangesAsync();

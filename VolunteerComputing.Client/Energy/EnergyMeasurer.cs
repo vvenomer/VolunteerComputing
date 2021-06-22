@@ -3,35 +3,83 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace VolunteerComputing.Client.Energy
 {
     class EnergyMeasurer
     {
-        public static async Task<NvidiaSmiEnergyData> RunNvidiaSmi(string path)
+        public class RunEnergyData
         {
-            var output = await RunProcess(new ProcessStartInfo
-            {
-                FileName = path,
-                Arguments = "-i 0 --query-gpu=\"utilization.gpu,utilization.memory,power.draw,power.limit\" --format=\"csv,noheader,nounits\""
-            });
-            var data = output
-                .Split(",")
-                .Select(s => double.Parse(s, CultureInfo.InvariantCulture))
-                .ToList();
-            return new NvidiaSmiEnergyData(data[0], data[1], data[2], data[3]);
+            public Process NvidiaSmiProcess { get; set; }
+            public Process PowerLogProcess { get; set; }
+            public string ResultFile { get; set; }
+            public string AwaiterFile { get; set; }
         }
 
+        public static async Task<(PowerLogEnergyData, NvidiaSmiEnergyData)> RunInitMeasurement(string nvidiaSmiPath, string powerLogPath, TimeSpan time)
+        {
+            var energyDataAwaitable = RunPowerLog(powerLogPath, time);
+            var gpuEnergyDataAwaitable = RunNvidiaSmi(nvidiaSmiPath, time);
+
+            return (await energyDataAwaitable, await gpuEnergyDataAwaitable);
+        }
+
+        public static async Task<NvidiaSmiEnergyData> RunNvidiaSmi(string path, Func<Task> action)
+        {
+            var process = NvidiaSmiStartInfo(path).Start();
+
+            await action();
+
+            process.Kill();
+            var output = await process.GetResultAsync();
+            return ToNvidiaSmiEnergyData(output);
+        }
+
+        public static async Task<NvidiaSmiEnergyData> RunNvidiaSmi(string path, TimeSpan time)
+        {
+            var output = await ProcessHelper.RunProcessAndKill(NvidiaSmiStartInfo(path), time);
+            return ToNvidiaSmiEnergyData(output);
+        }
+
+        public static async Task<PowerLogEnergyData> RunPowerLog(string path, Func<Task> action)
+        {
+            var resultFile = Path.GetRandomFileName();
+            var awaiterFile = Path.GetRandomFileName();
+            var process = new ProcessStartInfo
+            {
+                FileName = path,
+                Arguments = $"-file {resultFile} -cmd VolunteerComputing.Awaiter {awaiterFile}",
+            }.Start();
+
+            await action();
+
+            File.Create(awaiterFile).Close();
+            var output = await process.Await().GetResultAsync();
+            File.Delete(awaiterFile);
+            return ToPowerLogEnergyData(output, resultFile);
+        }
 
         public static async Task<PowerLogEnergyData> RunPowerLog(string path, TimeSpan time)
         {
             var resultFile = Path.GetRandomFileName();
-            var output = await RunProcess(new ProcessStartInfo
+            var output = await ProcessHelper.RunProcess(new ProcessStartInfo
             {
                 FileName = path,
                 Arguments = $"-duration {time.TotalSeconds} -file {resultFile}",
             });
+            return ToPowerLogEnergyData(output, resultFile);
+        }
+
+        static ProcessStartInfo NvidiaSmiStartInfo(string path) => new ProcessStartInfo
+        {
+            FileName = path,
+            Arguments = "-i 0 --query-gpu=\"utilization.gpu,utilization.memory,power.draw,power.limit\" --format=\"csv,noheader,nounits\" -lms 500"
+        };
+
+        static PowerLogEnergyData ToPowerLogEnergyData(string output, string resultFile)
+        {
             var csv = File.ReadAllLines(resultFile);
             File.Delete(resultFile);
             var endOfSamples = csv.ToList().IndexOf("");
@@ -52,17 +100,23 @@ namespace VolunteerComputing.Client.Energy
             return new PowerLogEnergyData(output, samplesDict, other);
         }
 
-        static async Task<string> RunProcess(ProcessStartInfo processStartInfo)
+        static NvidiaSmiEnergyData ToNvidiaSmiEnergyData(string output)
         {
-            processStartInfo.RedirectStandardOutput = true;
-            processStartInfo.RedirectStandardError = true;
-            var process = Process.Start(processStartInfo);
-            await process.WaitForExitAsync();
+            var data =
+                output
+                .Split("\n")
+                .Select(l => l.Trim())
+                .Where(l => !string.IsNullOrEmpty(l))
+                .Select(x => x
+                    .Split(",")
+                    .Select(s => double.Parse(s, CultureInfo.InvariantCulture))
+                    .ToList())
+                .ToList();
+            var averaged = Enumerable.Range(0, 4)
+                .Select(i => data.Average(x => x[i]))
+                .ToList();
 
-            if (process.ExitCode != 0)
-                throw new Exception($"{Path.GetFileNameWithoutExtension(processStartInfo.FileName)} exited with code: {process.ExitCode}");
-            var output = await process.StandardOutput.ReadToEndAsync();
-            return output;
+            return new NvidiaSmiEnergyData(averaged[0], averaged[1], averaged[2], averaged[3]);
         }
     }
 }

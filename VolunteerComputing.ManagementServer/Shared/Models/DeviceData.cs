@@ -12,7 +12,10 @@ namespace VolunteerComputing.Shared.Models
 
         public bool GpuWorks { get; set; }
         public bool GpuAvailable { get; set; }
-        
+
+        public double BaseCpuEnergyConsumption { get; set; }
+        public double BaseGpuEnergyConsumption { get; set; }
+
         public ICollection<DeviceStat> DeviceStats { get; set; }
     }
 }

@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "VolunteerComputing.Awaiter": {
+      "commandName": "Project",
+      "commandLineArgs": "ab.c"
+    }
+  }
+}
