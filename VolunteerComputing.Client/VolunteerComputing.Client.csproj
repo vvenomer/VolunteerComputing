@@ -8,9 +8,11 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="5.0.4" />
     <PackageReference Include="Microsoft.Extensions.Configuration.CommandLine" Version="5.0.0" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\VolunteerComputing.Awaiter\VolunteerComputing.Awaiter.csproj" />
     <ProjectReference Include="..\VolunteerComputing.ManagementServer\Shared\VolunteerComputing.Shared.csproj" />
   </ItemGroup>
 

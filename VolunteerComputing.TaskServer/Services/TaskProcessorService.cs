@@ -211,52 +211,54 @@ namespace VolunteerComputing.TaskServer.Services
 
         private static (DeviceData device, bool isCpu) ChooseDevice(IEnumerable<DeviceData> aviableDevices, ComputeTask computeTask)
         {
-            List<(DeviceData device, bool isCpu, double speed)> devices = new();
+            List<DeviceWithStat> devices = new();
 
             if(computeTask.WindowsCpuProgram is not null)
             {
                 var newDevices = aviableDevices
                     .Where(d => d.IsWindows && d.CpuAvailable && !d.CpuWorks)
-                    .Select(d => (device: d, isCpu: true, speed: d.DeviceStats.Where(s => s.ComputeTask == computeTask && s.IsCpu).Select(s => s.TimeSum / s.Count).FirstOrDefault()));
+                    .Select(d => new DeviceWithStat(d, true, d.DeviceStats.FirstOrDefault(s => s.ComputeTask == computeTask && s.IsCpu)));
                 devices.AddRange(newDevices);
             }
             if (computeTask.WindowsGpuProgram is not null)
             {
                 var newDevices = aviableDevices
                     .Where(d => d.IsWindows && d.GpuAvailable && !d.GpuWorks)
-                    .Select(d => (device: d, isCpu: false, speed: d.DeviceStats.Where(s => s.ComputeTask == computeTask && !s.IsCpu).Select(s => s.TimeSum / s.Count).FirstOrDefault()));
+                    .Select(d => new DeviceWithStat(d, false, d.DeviceStats.FirstOrDefault(s => s.ComputeTask == computeTask && !s.IsCpu)));
                 devices.AddRange(newDevices);
             }
             if (computeTask.LinuxCpuProgram is not null)
             {
                 var newDevices = aviableDevices
                     .Where(d => !d.IsWindows && d.CpuAvailable && !d.CpuWorks)
-                    .Select(d => (device: d, isCpu: true, speed: d.DeviceStats.Where(s => s.ComputeTask == computeTask && s.IsCpu).Select(s => s.TimeSum / s.Count).FirstOrDefault()));
+                    .Select(d => new DeviceWithStat(d, true, d.DeviceStats.FirstOrDefault(s => s.ComputeTask == computeTask && s.IsCpu)));
                 devices.AddRange(newDevices);
             }
             if (computeTask.LinuxGpuProgram is not null)
             {
                 var newDevices = aviableDevices
                     .Where(d => !d.IsWindows && d.GpuAvailable && !d.GpuWorks)
-                    .Select(d => (device: d, isCpu: false, speed: d.DeviceStats.Where(s => s.ComputeTask == computeTask && !s.IsCpu).Select(s => s.TimeSum / s.Count).FirstOrDefault()));
+                    .Select(d => new DeviceWithStat(d, false, d.DeviceStats.FirstOrDefault(s => s.ComputeTask == computeTask && !s.IsCpu)));
                 devices.AddRange(newDevices);
             }
 
-            (DeviceData device, bool isCpu, double speed) device;
-            if (devices.Any(d => d.speed == 0) && devices.Any(d => d.speed > 0) && random.NextDouble() < changeToUseNewDevice)
+            DeviceWithStat device;
+
+            if (devices.Any(d => d.EnergyEfficiency == 0) && devices.Any(d => d.EnergyEfficiency > 0) && random.NextDouble() < changeToUseNewDevice)
             {
                 //there are some devices already checked and some new ones - try new one
                 device = devices
-                    .FirstOrDefault(d => d.speed == 0);
+                    .FirstOrDefault(d => d.EnergyEfficiency == 0);
             }
             else
             {
+                //special case for when there are no devices?
                 device = devices
-                    .OrderBy(d => d.speed)
+                    .OrderByDescending(d => d.EnergyEfficiency)
                     .FirstOrDefault();
             }
 
-            return (device.device, device.isCpu);
+            return (device?.Device, device?.IsCpu??false);
         }
 
         private static IEnumerable<TaskWithPackets> FindComputeTasksAndPackets(IEnumerable<Packet> packets, IEnumerable<ComputeTask> computeTasks)
@@ -314,6 +316,34 @@ namespace VolunteerComputing.TaskServer.Services
                 if (selectednewPackets.Count == inputPacketTypes.Count)
                     yield return new TaskWithPackets { ComputeTask = computeTask, PacketsToSend = selectednewPackets, PacketsToRemove = selectedPackets };
             }
+        }
+
+        class DeviceWithStat
+        {
+            double time;
+            double energy;
+            public DeviceWithStat(DeviceData deviceData, bool isCpu, DeviceStat stat)
+            {
+                Device = deviceData;
+                IsCpu = isCpu;
+                if(stat is null || stat.Count == 0)
+                {
+                    time = energy = double.PositiveInfinity;
+                }
+                else
+                {
+                    var baseConsumption = (stat.IsCpu ? Device.BaseCpuEnergyConsumption : Device.BaseGpuEnergyConsumption);
+
+                    time = stat.TimeSum / stat.Count;
+                    energy = stat.EnergySum / stat.Count - baseConsumption;
+                }
+            }
+
+            public DeviceData Device { get; }
+            public bool IsCpu { get; }
+            public double SpeedEfficiency => 1 / time;
+            public double EnergyEfficiency => 1 / time / energy;
+            public double EnergyWithoutTime => 1 / time;
         }
 
         class TaskWithPackets

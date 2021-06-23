@@ -72,8 +72,8 @@
         {
             <option value="@packetType.Type">@packetType.Type</option>
         }
-    </select>
-    <InputText @bind-Value="packetData" />
+    </select><br>
+    <InputTextArea width="500" @bind-Value="packetData" /><br>
     <button class="btn btn-primary" @onclick="SendPacket">Create new packet</button>
 </EditForm>
 @code
