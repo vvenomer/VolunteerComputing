@@ -8,6 +8,7 @@ using Microsoft.Extensions.Hosting;
 using VolunteerComputing.ManagementServer.Server.Data;
 using VolunteerComputing.ManagementServer.Server.Models;
 using Microsoft.AspNetCore.Mvc.NewtonsoftJson;
+using VolunteerComputing.ManagementServer.Server.Hubs;
 
 namespace VolunteerComputing.ManagementServer.Server
 {
@@ -38,6 +39,8 @@ namespace VolunteerComputing.ManagementServer.Server
 
             services.AddAuthentication()
                 .AddIdentityServerJwt();
+
+            services.AddSignalR();
 
             services.AddControllersWithViews();
             services.AddRazorPages().AddNewtonsoftJson(x => x.SerializerSettings.ReferenceLoopHandling = Newtonsoft.Json.ReferenceLoopHandling.Ignore);
@@ -74,6 +77,7 @@ namespace VolunteerComputing.ManagementServer.Server
                 endpoints.MapRazorPages();
                 endpoints.MapControllers();
                 endpoints.MapFallbackToFile("index.html");
+                endpoints.MapHub<TaskManagementHub>("/tasks");
             });
         }
     }

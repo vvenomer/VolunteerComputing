@@ -48,7 +48,6 @@ namespace VolunteerComputing.TaskServer
                 {
                     await context.Response.WriteAsync("Hello World!");
                 });
-                endpoints.MapHub<TaskRecieverHub>("/getTasks");
                 endpoints.MapHub<TaskServerHub>("/tasks");
             });
         }

@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.SignalR;
+using Microsoft.AspNetCore.SignalR.Client;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -21,17 +22,27 @@ namespace VolunteerComputing.TaskServer.Services
         readonly IHubContext<TaskServerHub, ITaskServerHubMessages> taskServerHub;
         private readonly IServiceScopeFactory scopeFactory;
         readonly static Random random = new();
+        readonly HubConnection hubConnection;
         static double changeToUseNewDevice = 0.5;
         public static bool ShouldStartWork { get; set; }
+        public static string Id { get; set; }
 
         public TaskProcessorService(IHubContext<TaskServerHub, ITaskServerHubMessages> taskServerHub, IServiceScopeFactory scopeFactory)
         {
             this.taskServerHub = taskServerHub;
             this.scopeFactory = scopeFactory;
+
+            hubConnection = new HubConnectionBuilder()
+                .WithUrl("https://localhost:5001/tasks")
+                .WithAutomaticReconnect()
+                .Build();
+            hubConnection.On("PacketAdded", () => ShouldStartWork = true);
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
+            await hubConnection.StartAsync();
+            Id = hubConnection.ConnectionId;
             int i = 0, j = 0, k = 0, l = 0;
             while (!stoppingToken.IsCancellationRequested)
             {
@@ -62,20 +73,21 @@ namespace VolunteerComputing.TaskServer.Services
 
                         if(!tasksWithPackets.Any())
                         {
-                            bool nothingDoesWork = !context.Devices.Any(d => d.CpuWorks || d.GpuWorks);
+                            bool nothingDoesWork = !context.Devices.Any(d => d.TaskServerId == Id && (d.CpuWorks || d.GpuWorks));
                             if(nothingDoesWork)
                             {
                                 Console.SetCursorPosition(0, 2);
                                 Console.WriteLine("Finished " + ++k);
-                                //to do: create table with project name and use that name to save results
-                                foreach (var grouping in packets.GroupBy(p => p.Type.Project))
+
+                                await hubConnection.SendAsync("ReportFinished");
+                                /*foreach (var grouping in packets.GroupBy(p => p.Type.Project))
                                 {
                                     var project = grouping.Key.Name;
                                     File.WriteAllText(Path.GetRandomFileName() + $".{project}_result.json", JsonConvert.SerializeObject(grouping.Select(x => ShareAPI.GetTextFromShare(x.Data))));
                                 }
                                 
                                 context.Packets.RemoveRange(packets);
-                                await context.SaveChangesAsync(stoppingToken);
+                                await context.SaveChangesAsync(stoppingToken);*/
                                 ShouldStartWork = false;
                                 continue; //continue?
                             }
@@ -90,7 +102,10 @@ namespace VolunteerComputing.TaskServer.Services
                     {
                         Console.SetCursorPosition(0, 2);
                         Console.WriteLine("Finding devices" + Dots(ref l, 3));
-                        devices = context.Devices.Include(d => d.DeviceStats).Where(d => (d.CpuAvailable && !d.CpuWorks) || (d.GpuAvailable && !d.GpuWorks));
+                        devices = context.Devices
+                            .Include(d => d.DeviceStats)
+                            .Where(d => d.TaskServerId == Id)
+                            .Where(d => (d.CpuAvailable && !d.CpuWorks) || (d.GpuAvailable && !d.GpuWorks));
                         //wait if not found
                         if (!devices.Any())
                         {

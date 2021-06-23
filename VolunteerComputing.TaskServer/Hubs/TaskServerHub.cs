@@ -4,11 +4,11 @@ using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Net.Http;
 using System.Threading.Tasks;
 using VolunteerComputing.Shared;
 using VolunteerComputing.Shared.Models;
 using VolunteerComputing.TaskServer.Data;
+using VolunteerComputing.TaskServer.Services;
 
 namespace VolunteerComputing.TaskServer.Hubs
 {
@@ -96,6 +96,7 @@ namespace VolunteerComputing.TaskServer.Hubs
 
             if (device.Id == 0)
             {
+                device.TaskServerId = TaskProcessorService.Id;
                 dbContext.Devices.Add(device);
             }
             await dbContext.SaveChangesAsync();
