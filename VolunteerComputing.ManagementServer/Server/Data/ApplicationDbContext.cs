@@ -16,6 +16,7 @@ namespace VolunteerComputing.ManagementServer.Server.Data
         public virtual DbSet<DeviceData> Devices { get; set; }
         public virtual DbSet<DeviceStat> DeviceStats { get; set; }
         public virtual DbSet<Project> Projects { get; set; }
+        public virtual DbSet<Result> Result { get; set; }
 
         public ApplicationDbContext(
             DbContextOptions options,

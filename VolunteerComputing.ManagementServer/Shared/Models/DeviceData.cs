@@ -6,6 +6,7 @@ namespace VolunteerComputing.Shared.Models
     {
         public int Id { get; set; }
         public string ConnectionId { get; set; }
+        public string TaskServerId { get; set; }
         public bool IsWindows { get; set; } //otherwise Linux
         public bool CpuWorks { get; set; }
         public bool CpuAvailable { get; set; }

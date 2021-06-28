@@ -18,6 +18,7 @@ namespace VolunteerComputing.Shared
         {
             return File.ReadAllText(path);
         }
+
         public static string SaveToShare(string file)
         {
             var program = Convert.FromBase64String(file);

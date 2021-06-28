@@ -2,9 +2,11 @@
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.AspNetCore.SignalR.Client;
 using Microsoft.EntityFrameworkCore;
 using VolunteerComputing.ManagementServer.Server.Data;
+using VolunteerComputing.ManagementServer.Server.Hubs;
 using VolunteerComputing.Shared;
 using VolunteerComputing.Shared.Models;
 
@@ -15,16 +17,12 @@ namespace VolunteerComputing.ManagementServer.Server.Controllers
     public class PacketsController : ControllerBase
     {
         readonly ApplicationDbContext _context;
-        readonly HubConnection hubConnection;
+        readonly IHubContext<TaskManagementHub, ITaskManagementHubMessages> hubContext;
 
-        public PacketsController(ApplicationDbContext context)
+        public PacketsController(ApplicationDbContext context, IHubContext<TaskManagementHub, ITaskManagementHubMessages> hubContext)
         {
-            hubConnection = new HubConnectionBuilder()
-                .WithUrl("https://localhost:8080/getTasks")
-                .WithAutomaticReconnect()
-                .Build();
-            hubConnection.StartAsync().Wait();
             _context = context;
+            this.hubContext = hubContext;
         }
 
         // GET: api/Packets
@@ -91,7 +89,7 @@ namespace VolunteerComputing.ManagementServer.Server.Controllers
             _context.Packets.Add(packet);
             await _context.SaveChangesAsync();
 
-            await hubConnection.SendAsync("PacketAdded");
+            await hubContext.Clients.All.PacketAdded();
 
             return CreatedAtAction("GetPacket", new { id = packet.Id }, packet);
         }

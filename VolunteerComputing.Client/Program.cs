@@ -45,7 +45,10 @@ namespace VolunteerComputing.Client
             {
                 Console.WriteLine("Running initial energy consumption test");
 
-                var energyDataAwaitable = EnergyMeasurer.RunInitMeasurement(Storage.GpuEnergyToolPath, Storage.CpuEnergyToolPath, initTestTime);
+                var energyDataAwaitable = EnergyMeasurer.RunInitMeasurement(
+                    Storage.GpuEnergyToolPath,
+                    Storage.CpuEnergyToolPath,
+                    initTestTime);
 
                 var (cpuEnergyData, gpuEnergyData) = await energyDataAwaitable;
                 (cpuEnergy, gpuEnergy) = (cpuEnergyData.Watt, gpuEnergyData.Watt);
@@ -60,6 +63,9 @@ namespace VolunteerComputing.Client
             {
                 Task.Run(async () => await CalculateTask(conn, programId, data, useCpu));
             });
+
+            conn.On("InformFinished", () => 
+                Console.WriteLine("There is no more work to be done. You can wait for more or check back in later."));
 
             var data = new DeviceData
             {
