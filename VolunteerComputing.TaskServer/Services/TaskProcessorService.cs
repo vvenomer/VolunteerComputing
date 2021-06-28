@@ -34,6 +34,7 @@ namespace VolunteerComputing.TaskServer.Services
 
             hubConnection = new HubConnectionBuilder()
                 .WithUrl("https://localhost:5001/tasks")
+                .AddMessagePackProtocol()
                 .WithAutomaticReconnect()
                 .Build();
             hubConnection.On("PacketAdded", () => ShouldStartWork = true);
@@ -85,14 +86,7 @@ namespace VolunteerComputing.TaskServer.Services
                                 Console.WriteLine("Finished " + ++k);
 
                                 await hubConnection.SendAsync("ReportFinished");
-                                /*foreach (var grouping in packets.GroupBy(p => p.Type.Project))
-                                {
-                                    var project = grouping.Key.Name;
-                                    File.WriteAllText(Path.GetRandomFileName() + $".{project}_result.json", JsonConvert.SerializeObject(grouping.Select(x => ShareAPI.GetTextFromShare(x.Data))));
-                                }
-                                
-                                context.Packets.RemoveRange(packets);
-                                await context.SaveChangesAsync(stoppingToken);*/
+
                                 ShouldStartWork = false;
                                 continue; //continue?
                             }
@@ -134,7 +128,8 @@ namespace VolunteerComputing.TaskServer.Services
                             else
                                 selectedDevice.GpuWorks = true;
                             var dbSaveAwaiter = context.SaveChangesAsync(stoppingToken);
-                            var data = JsonConvert.SerializeObject(taskWithPackets.PacketsToSend.Select(p => p.Data).Select(d => ShareAPI.GetTextFromShare(d)));
+                            var packetsToSend = taskWithPackets.PacketsToSend.Select(p => p.Aggregated ? p.Data : ShareAPI.GetTextFromShare(p.Data));
+                            var data = CompressionHelper.Compress(JsonConvert.SerializeObject(packetsToSend));
                             await taskServerHub.Clients.Client(selectedDevice.ConnectionId).SendTaskAsync(computeTask.Id, data, isCpu);
                             await dbSaveAwaiter;
 
@@ -317,7 +312,7 @@ namespace VolunteerComputing.TaskServer.Services
                             selectednewPackets.Add(new Packet
                             {
                                 Type = packetType,
-                                Data = ShareAPI.SaveTextToShare($"[{data}]"),
+                                Data = $"[{data}]",
                                 Aggregated = true
                             });
                             tempPackets.RemoveAll(x => packetsToSelect.Contains(x));

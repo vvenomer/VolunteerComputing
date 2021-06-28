@@ -1,10 +1,12 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using System.Linq;
 using VolunteerComputing.TaskServer.Data;
 using VolunteerComputing.TaskServer.Hubs;
 using VolunteerComputing.TaskServer.Services;
@@ -27,7 +29,12 @@ namespace VolunteerComputing.TaskServer
             services.AddDbContext<VolunteerComputingContext>(options =>
                 options.UseSqlServer(
                     Configuration.GetConnectionString("DefaultConnection")));
-            services.AddSignalR(o => o.MaximumReceiveMessageSize = null);
+            services.AddResponseCompression(opts =>
+            {
+                opts.MimeTypes = ResponseCompressionDefaults.MimeTypes.Concat(new[] { "application/octet-stream" });
+            });
+            services.AddSignalR(o => o.MaximumReceiveMessageSize = null)
+                .AddMessagePackProtocol();
             services.AddHostedService<TaskProcessorService>();
             services.AddRazorPages();
         }
@@ -41,6 +48,8 @@ namespace VolunteerComputing.TaskServer
             }
             
             app.UseRouting();
+
+            app.UseResponseCompression();
 
             app.UseEndpoints(endpoints =>
             {

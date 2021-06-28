@@ -10,9 +10,9 @@ namespace VolunteerComputing.Shared
     public class ShareAPI
     {
         static readonly string uploadDirectory = @"C:\Users\Pawelb\Desktop\Programowanie\csharp\VolunteerComputing\Upload";
-        public static string GetFromShare(string path)
+        public static byte[] GetFromShare(string path)
         {
-            return Convert.ToBase64String(File.ReadAllBytes(path));
+            return File.ReadAllBytes(path);
         }
         public static string GetTextFromShare(string path)
         {

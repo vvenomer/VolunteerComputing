@@ -40,7 +40,10 @@ namespace VolunteerComputing.ManagementServer.Server
             services.AddAuthentication()
                 .AddIdentityServerJwt();
 
-            services.AddSignalR();
+            services.AddSignalR()
+                .AddMessagePackProtocol();
+
+            services.AddResponseCompression();
 
             services.AddControllersWithViews();
             services.AddRazorPages().AddNewtonsoftJson(x => x.SerializerSettings.ReferenceLoopHandling = Newtonsoft.Json.ReferenceLoopHandling.Ignore);
@@ -71,6 +74,8 @@ namespace VolunteerComputing.ManagementServer.Server
             app.UseIdentityServer();
             app.UseAuthentication();
             app.UseAuthorization();
+
+            app.UseResponseCompression();
 
             app.UseEndpoints(endpoints =>
             {
