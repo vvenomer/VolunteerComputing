@@ -8,14 +8,15 @@ using System.Linq;
 using System.Threading.Tasks;
 using VolunteerComputing.ManagementServer.Server.Data;
 using VolunteerComputing.Shared;
+using VolunteerComputing.Shared.Models;
 
 namespace VolunteerComputing.ManagementServer.Server.Hubs
 {
-    public class TaskManagementHub : Hub
+    public class TaskManagementHub : Hub<ITaskManagementHubMessages>
     {
         private readonly ApplicationDbContext dbContext;
-        int connected = 0;
-        int finished = 0;
+        static int connected = 0;
+        static int finished = 0;
         object connectedLocker = new();
         object finishedLocker = new();
 
@@ -26,7 +27,7 @@ namespace VolunteerComputing.ManagementServer.Server.Hubs
 
         public override Task OnConnectedAsync()
         {
-            lock(connectedLocker)
+            lock (connectedLocker)
             {
                 connected++;
             }
@@ -35,30 +36,34 @@ namespace VolunteerComputing.ManagementServer.Server.Hubs
 
         public async Task ReportFinished()
         {
-            lock(finishedLocker)
+            lock (finishedLocker)
             {
-                Console.WriteLine($"Task server reports finishing work ({finished} out of {connected} reported)");
                 finished++;
+                Console.WriteLine($"Task server reports finishing work ({finished} out of {connected} reported)");
             }
-            if(finished == connected)
+            if (finished == connected)
             {
-                _ = Task.Run(async () =>
-                {
-                    Console.WriteLine("Saving result");
-                    var packets = dbContext.Packets.Include(x => x.Type).ThenInclude(p => p.Project).ToList();
+                Console.WriteLine("Saving result");
+                var packets = dbContext.Packets.Include(x => x.Type).ThenInclude(p => p.Project).ToList();
 
-                    foreach (var grouping in packets.GroupBy(p => p.Type.Project))
+                var tasks = packets
+                    .GroupBy(p => p.Type.Project)
+                    .Select(g => (project: g.Key, data: g.Select(x => ShareAPI.GetTextFromShare(x.Data))))
+                    .Select(g => (g.project, result: JsonConvert.SerializeObject(g.data)))
+                    .Select(async g =>
                     {
-                        var project = grouping.Key.Name;
-                        var result = JsonConvert.SerializeObject(grouping.Select(x => ShareAPI.GetTextFromShare(x.Data)));
-                        File.WriteAllText(Path.GetRandomFileName() + $".{project}_result.json", result);
-                    }
+                        var (project, result) = g;
+                        var fileId = await ResultsHelper.SaveResult(project.Name, result);
+                        dbContext.Result.Add(new Result { FileId = fileId, Project = project });
+                    });
 
-                    dbContext.Packets.RemoveRange(packets);
-                    await dbContext.SaveChangesAsync();
-                    Console.WriteLine("Saved");
-                    //inform all clients
-                });
+                await Task.WhenAll(tasks);
+
+                dbContext.Packets.RemoveRange(packets);
+                await dbContext.SaveChangesAsync();
+                Console.WriteLine("Saved");
+
+                await Clients.All.InformFinished();
 
             }
         }

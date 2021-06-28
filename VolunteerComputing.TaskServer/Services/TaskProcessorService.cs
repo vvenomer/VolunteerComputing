@@ -37,6 +37,12 @@ namespace VolunteerComputing.TaskServer.Services
                 .WithAutomaticReconnect()
                 .Build();
             hubConnection.On("PacketAdded", () => ShouldStartWork = true);
+            hubConnection.On("InformFinished", async () =>
+            {
+                Console.WriteLine("Finished work");
+                await taskServerHub.Clients.All.InformFinished();
+            });
+
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -50,8 +56,7 @@ namespace VolunteerComputing.TaskServer.Services
                 {
                     while (!ShouldStartWork)
                     {
-                        Console.Clear();
-                        //Console.SetCursorPosition(0, 0);
+                        Console.SetCursorPosition(0, 0);
                         Console.WriteLine("Waiting for work" + Dots(ref i, 3));
                         await Task.Delay(2000, stoppingToken);
                     }

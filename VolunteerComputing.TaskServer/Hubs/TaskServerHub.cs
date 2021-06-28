@@ -93,10 +93,10 @@ namespace VolunteerComputing.TaskServer.Hubs
             device.ConnectionId = Context.ConnectionId;
             device.CpuWorks = false;
             device.GpuWorks = false;
+            device.TaskServerId = TaskProcessorService.Id;
 
             if (device.Id == 0)
             {
-                device.TaskServerId = TaskProcessorService.Id;
                 dbContext.Devices.Add(device);
             }
             await dbContext.SaveChangesAsync();

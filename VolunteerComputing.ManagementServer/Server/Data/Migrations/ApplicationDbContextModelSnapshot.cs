@@ -508,6 +508,26 @@ namespace VolunteerComputing.ManagementServer.Server.Data.Migrations
                     b.ToTable("Projects");
                 });
 
+            modelBuilder.Entity("VolunteerComputing.Shared.Models.Result", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasAnnotation("SqlServer:ValueGenerationStrategy", SqlServerValueGenerationStrategy.IdentityColumn);
+
+                    b.Property<string>("FileId")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int?>("ProjectId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProjectId");
+
+                    b.ToTable("Result");
+                });
+
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
                 {
                     b.HasOne("Microsoft.AspNetCore.Identity.IdentityRole", null)
@@ -605,6 +625,15 @@ namespace VolunteerComputing.ManagementServer.Server.Data.Migrations
                     b.Navigation("ComputeTask");
 
                     b.Navigation("PacketType");
+                });
+
+            modelBuilder.Entity("VolunteerComputing.Shared.Models.Result", b =>
+                {
+                    b.HasOne("VolunteerComputing.Shared.Models.Project", "Project")
+                        .WithMany()
+                        .HasForeignKey("ProjectId");
+
+                    b.Navigation("Project");
                 });
 
             modelBuilder.Entity("VolunteerComputing.Shared.Models.ComputeTask", b =>

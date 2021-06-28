@@ -17,9 +17,9 @@ namespace VolunteerComputing.ManagementServer.Server.Controllers
     public class PacketsController : ControllerBase
     {
         readonly ApplicationDbContext _context;
-        readonly IHubContext<TaskManagementHub> hubContext;
+        readonly IHubContext<TaskManagementHub, ITaskManagementHubMessages> hubContext;
 
-        public PacketsController(ApplicationDbContext context, IHubContext<TaskManagementHub> hubContext)
+        public PacketsController(ApplicationDbContext context, IHubContext<TaskManagementHub, ITaskManagementHubMessages> hubContext)
         {
             _context = context;
             this.hubContext = hubContext;
@@ -89,7 +89,7 @@ namespace VolunteerComputing.ManagementServer.Server.Controllers
             _context.Packets.Add(packet);
             await _context.SaveChangesAsync();
 
-            await hubContext.Clients.All.SendAsync("PacketAdded");
+            await hubContext.Clients.All.PacketAdded();
 
             return CreatedAtAction("GetPacket", new { id = packet.Id }, packet);
         }
