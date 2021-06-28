@@ -4,6 +4,7 @@ using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 using VolunteerComputing.Shared;
 using VolunteerComputing.Shared.Models;
@@ -32,7 +33,7 @@ namespace VolunteerComputing.TaskServer.Hubs
             await base.OnDisconnectedAsync(exception);
         }
 
-        public async Task SendResult(string jsonResult, int programId, bool cpu, double time, double energy)
+        public async Task SendResult(byte[] result, int programId, bool cpu, double time, double energy)
         {
             //update device data
             var thisDevice = dbContext.Devices.Include(x => x.DeviceStats).ThenInclude(x => x.ComputeTask).FirstOrDefault(d => d.ConnectionId == Context.ConnectionId);
@@ -54,7 +55,7 @@ namespace VolunteerComputing.TaskServer.Hubs
                 dbContext.Add(stats);
             
             //get and save packets from result
-            var results = JsonConvert.DeserializeObject<List<List<string>>>(jsonResult);
+            var results = JsonConvert.DeserializeObject<List<List<string>>>(CompressionHelper.Decompress(result));
             var newPackets = computeTask
                 .PacketTypes
                 .Where(p => !p.IsInput)
@@ -81,7 +82,7 @@ namespace VolunteerComputing.TaskServer.Hubs
                 : (cpu
                     ? task.LinuxCpuProgram
                     : task.LinuxGpuProgram);
-            string program = ShareAPI.GetFromShare(programPath);
+            var program = CompressionHelper.CompressFile(ShareAPI.GetFromShare(programPath));
             return new ProgramData { Program = program, ExeName = task.ExeFilename };
         }
 

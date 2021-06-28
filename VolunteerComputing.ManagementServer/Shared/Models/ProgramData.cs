@@ -8,7 +8,7 @@ namespace VolunteerComputing.Shared.Models
 {
     public class ProgramData
     {
-        public string Program { get; set; }
+        public byte[] Program { get; set; }
         public string ExeName { get; set; }
     }
 }

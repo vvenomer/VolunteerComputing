@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.SignalR.Client;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -9,6 +10,7 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using VolunteerComputing.Client.Energy;
+using VolunteerComputing.Shared;
 using VolunteerComputing.Shared.Models;
 
 namespace VolunteerComputing.Client
@@ -59,7 +61,7 @@ namespace VolunteerComputing.Client
 
             var conn = await CreateHubConnection();
 
-            conn.On("SendTaskAsync", (int programId, string data, bool useCpu) =>
+            conn.On("SendTaskAsync", (int programId, byte[] data, bool useCpu) =>
             {
                 Task.Run(async () => await CalculateTask(conn, programId, data, useCpu));
             });
@@ -143,6 +145,7 @@ namespace VolunteerComputing.Client
         {
             var conn = new HubConnectionBuilder()
                 .WithUrl("https://localhost:8080/tasks")
+                .AddMessagePackProtocol()
                 .WithAutomaticReconnect()
                 .Build();
             do
@@ -204,7 +207,7 @@ namespace VolunteerComputing.Client
             return defaultValue;
         }
 
-        static async Task CalculateTask(HubConnection connection, int programId, string data, bool useCpu)
+        static async Task CalculateTask(HubConnection connection, int programId, byte[] compressedData, bool useCpu)
         {
             try
             {
@@ -224,7 +227,7 @@ namespace VolunteerComputing.Client
                     programs.Add((programId, useCpu));
                 }
 
-                File.WriteAllText(inputFilePath, data);
+                File.WriteAllText(inputFilePath, CompressionHelper.Decompress(compressedData));
                 var stopwatch = new Stopwatch();
 
                 async Task calculate()
@@ -254,15 +257,16 @@ namespace VolunteerComputing.Client
                 var time = stopwatch.Elapsed;
                 if (!File.Exists(outputFilePath))
                 {
-                    Console.WriteLine($"Something went wrong after {time} using {energyData.Watt} W energy on {device}");
+                    Console.WriteLine($"Something went wrong after {time} using {energyData.Watt:0.00} W energy on {device}");
                     //to do - handle
                     //send message, that failed
                     return;
                 }
-                var result = File.ReadAllText(outputFilePath);
+                
+                var result = CompressionHelper.Compress(File.ReadAllText(outputFilePath));
                 File.Delete(inputFilePath);
                 File.Delete(outputFilePath);
-                Console.WriteLine($"Finished work after {time} using {energyData.Watt} W energy on {device}, sending results");
+                Console.WriteLine($"Finished work after {time} using {energyData.Watt:0.00} W energy on {device}, sending results");
                 await connection.SendAsync("SendResult", result, programId, useCpu, time.TotalSeconds, energyData.Watt);
             }
             catch (Exception ex)
@@ -277,12 +281,12 @@ namespace VolunteerComputing.Client
             var programData = await connection.InvokeAsync<ProgramData>("GetProgram", programId, isWindows, useCpu);
             if (programData.ExeName is null)
             {
-                File.WriteAllBytes(file, Convert.FromBase64String(programData.Program));
+                File.WriteAllBytes(file, CompressionHelper.DecompressFile(programData.Program));
             }
             else
             {
                 var zipFile = Path.GetRandomFileName() + ".zip";
-                File.WriteAllBytes(zipFile, Convert.FromBase64String(programData.Program));
+                File.WriteAllBytes(zipFile, CompressionHelper.DecompressFile(programData.Program));
                 var filesInDir = Directory.GetFiles(dir);
                 foreach (var fileInDir in filesInDir)
                 {
