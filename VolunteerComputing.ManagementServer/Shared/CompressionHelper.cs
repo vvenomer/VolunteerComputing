@@ -8,7 +8,6 @@ using System.IO.Compression;
 
 namespace VolunteerComputing.Shared
 {
-    [System.Diagnostics.CodeAnalysis.SuppressMessage("Interoperability", "CA1416:Validate platform compatibility", Justification = "I's fine")]
     public class CompressionHelper
     {
         public static byte[] CompressFile(byte[] data)
