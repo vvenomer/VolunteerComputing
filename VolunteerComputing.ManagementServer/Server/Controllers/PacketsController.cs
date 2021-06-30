@@ -104,7 +104,7 @@ namespace VolunteerComputing.ManagementServer.Server.Controllers
                 return NotFound();
             }
 
-            _context.Packets.Remove(packet);
+            _context.Packets.Remove(packet); //todo: delete from share
             await _context.SaveChangesAsync();
 
             return NoContent();

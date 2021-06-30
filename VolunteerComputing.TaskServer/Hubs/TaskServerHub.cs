@@ -63,8 +63,8 @@ namespace VolunteerComputing.TaskServer.Hubs
 
             var decompressed = CompressionHelper.DecompressData(result);
             
-            using var sha = SHA256.Create();
-            var bundleResult = new BundleResult { DataHash = sha.ComputeHash(decompressed), Bundle = bundle };
+            var bundleResult = new BundleResult {  Bundle = bundle }
+                .SetDataHash(decompressed);
 
             //get and save packets from result
             var results = JsonConvert.DeserializeObject<List<List<string>>>(Encoding.Unicode.GetString(decompressed));
