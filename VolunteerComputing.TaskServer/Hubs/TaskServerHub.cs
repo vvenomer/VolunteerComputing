@@ -47,6 +47,7 @@ namespace VolunteerComputing.TaskServer.Hubs
                 thisDevice.CpuWorksOnBundle = 0;
             else
                 thisDevice.GpuWorksOnBundle = 0;
+            await dbContext.SaveChangesAsync();
 
             var computeTask = dbContext.ComputeTask
                 .Include(x => x.PacketTypes)
@@ -60,9 +61,9 @@ namespace VolunteerComputing.TaskServer.Hubs
             if (dbContext.Entry(stats).State == EntityState.Detached)
                 dbContext.Add(stats);
 
-            using var sha = SHA256.Create();
             var decompressed = CompressionHelper.DecompressData(result);
-
+            
+            using var sha = SHA256.Create();
             var bundleResult = new BundleResult { DataHash = sha.ComputeHash(decompressed), Bundle = bundle };
 
             //get and save packets from result

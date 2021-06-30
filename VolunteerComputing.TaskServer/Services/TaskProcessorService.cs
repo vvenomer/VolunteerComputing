@@ -62,6 +62,7 @@ namespace VolunteerComputing.TaskServer.Services
 
                     using var scope = scopeFactory.CreateScope();
                     var context = scope.ServiceProvider.GetRequiredService<VolunteerComputingContext>();
+                    await RefreshDevices(devices, context);
                     foreach (var bundle in bundles)
                     {
                         var computeTask = bundle.ComputeTask;
@@ -96,7 +97,7 @@ namespace VolunteerComputing.TaskServer.Services
                                     selectedDevice.GpuWorksOnBundle = bundle.Id;
 
                                 context.Entry(bundle).State = EntityState.Modified;
-                                context.Entry(selectedDevice).State = EntityState.Modified;
+                                //context.Entry(selectedDevice).State = EntityState.Modified;
 
                                 var dbSaveAwaiter = context.SaveChangesAsync(stoppingToken);
                                 var data = CompressionHelper.Compress(JsonConvert.SerializeObject(grouped));
@@ -147,28 +148,34 @@ namespace VolunteerComputing.TaskServer.Services
                     .Include(x => x.PacketTypes).ThenInclude(x => x.PacketType)
                     .ToList();
 
-                var allBundles = context.Bundles
-                    .Include(x => x.Packets)
-                    .Include(x => x.ComputeTask).ThenInclude(x => x.Project)
-                    .Where(x => x.TimesSent < x.ComputeTask.Project.MinAgreeingClients);
-
                 newPackets.AddRange(await FindFinishedBundles(context));
 
-                var bundleTasks = context.Bundles
+                var existingBundles = context.Bundles
                     .Include(x => x.Packets)
                     .Include(x => x.ComputeTask).ThenInclude(x => x.Project)
                     .Where(x => x.TimesSent < x.ComputeTask.Project.MinAgreeingClients)
                     .ToList();
                 //to do: extend aggregable bundles that weren't started
 
+                foreach (var bundle in existingBundles)
+                {
+                    if (bundle.TimesSent != 0)
+                        continue;
+                    var extendedPackets = bundle.Extend(newPackets);
+                    foreach (var packet in extendedPackets)
+                    {
+                        newPackets.Remove(packet);
+                    }
+                }
+
                 var newBundles = CreateBundles(newPackets, tasks, devices).ToList();
 
                 foreach (var bundle in newBundles)
                 {
-                    context.Bundles.Add(bundle); //hope I don't have to update packets manually
+                    context.Bundles.Add(bundle);
                 }
                 await context.SaveChangesAsync();
-                bundles.AddRange(bundleTasks);
+                bundles.AddRange(existingBundles);
                 bundles.AddRange(newBundles);
 
                 if (!bundles.Any())
@@ -184,7 +191,7 @@ namespace VolunteerComputing.TaskServer.Services
                         ShouldStartWork = false;
                         continue; //continue?
                     }
-                    await Task.WhenAll(devices.Select(async d => await context.Entry(d).ReloadAsync())); //refresh devices
+                    await RefreshDevices(devices, context);
                     await Task.Delay(2000, stoppingToken); //wait for new devices
                     continue;
                 }
@@ -194,15 +201,20 @@ namespace VolunteerComputing.TaskServer.Services
             return bundles;
         }
 
+        private static async Task RefreshDevices(IEnumerable<DeviceData> devices, VolunteerComputingContext context)
+        {
+            await Task.WhenAll(devices.Select(async d => await context.Entry(d).ReloadAsync())); //refresh devices
+        }
+
         private async Task<IEnumerable<Packet>> FindFinishedBundles(VolunteerComputingContext context)
         {
             List<Packet> packets = new();
             var bundleReults = context.BundleResults
+                .AsSplitQuery()
                 .Include(x => x.Packets)
                 .Include(x => x.Bundle)
                     .ThenInclude(x => x.ComputeTask).ThenInclude(x => x.Project)
-                .Include(x => x.Bundle)
-                    .ThenInclude(x => x.Packets)
+                .Include(x => x.Bundle.Packets)
                 .AsEnumerable()
                 .GroupBy(x => x.Bundle);
             foreach (var result in bundleReults)
@@ -354,36 +366,41 @@ namespace VolunteerComputing.TaskServer.Services
                 if (!devices.Any(d => d.CanCalculate(computeTask)))
                     break;
 
-                var selectednewPackets = new List<Packet>();
-                var selectedPackets = new List<Packet>();
-                var inputPacketTypes = computeTask.PacketTypes
-                    .Where(p => p.IsInput)
-                    .OrderBy(p => p.Id)
-                    .Select(p => p.PacketType)
-                    .ToList();
-                var addedCount = 0;
-                foreach (var packetType in inputPacketTypes)
+                while(true)
                 {
-                    if(packetType.Aggregable)
+                    var selectedPackets = new List<Packet>();
+                    var inputPacketTypes = computeTask.PacketTypes
+                        .Where(p => p.IsInput)
+                        .OrderBy(p => p.Id)
+                        .Select(p => p.PacketType)
+                        .ToList();
+                    var addedCount = 0;
+                    foreach (var packetType in inputPacketTypes)
                     {
-                        var packetsToSelect = packets.Where(t => t.Type == packetType).ToHashSet();
-                        if (packetsToSelect.Count < 2)
-                            break;
-                        selectedPackets.AddRange(packetsToSelect);
-                        packets.RemoveAll((Packet x) => packetsToSelect.Contains(x));
+                        if (packetType.Aggregable)
+                        {
+                            var packetsToSelect = packets.Where(t => t.Type == packetType).ToHashSet();
+                            if (packetsToSelect.Count < 2)
+                                break;
+                            selectedPackets.AddRange(packetsToSelect);
+                            packets.RemoveAll((Packet x) => packetsToSelect.Contains(x));
+                        }
+                        else
+                        {
+                            var packetToSelect = packets.FirstOrDefault(t => t.Type == packetType);
+                            if (packetToSelect == null)
+                                break;
+                            selectedPackets.Add(packetToSelect);
+                            packets.Remove(packetToSelect);
+                        }
+                        addedCount++;
                     }
+                    if (addedCount == inputPacketTypes.Count)
+                        yield return new PacketBundle { ComputeTask = computeTask, Packets = selectedPackets, UntilCheck = computeTask.Project.MinAgreeingClients };
                     else
-                    {
-                        var packetToSelect = packets.FirstOrDefault(t => t.Type == packetType);
-                        if (packetToSelect == null)
-                            break;
-                        selectedPackets.Add(packetToSelect);
-                        packets.Remove(packetToSelect);
-                    }
-                    addedCount++;
+                        break;
+                    continue;
                 }
-                if (addedCount == inputPacketTypes.Count)
-                    yield return new PacketBundle { ComputeTask = computeTask, Packets = selectedPackets, UntilCheck = computeTask.Project.MinAgreeingClients };
             }
         }
 
