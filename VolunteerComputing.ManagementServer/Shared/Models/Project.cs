@@ -10,5 +10,6 @@ namespace VolunteerComputing.Shared.Models
     {
         public int Id { get; set; }
         public string Name { get; set; }
+        public int MinAgreeingClients { get; set; }
     }
 }

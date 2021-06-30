@@ -137,7 +137,7 @@ namespace VolunteerComputing.ManagementServer.Server.Controllers
             return _context.ComputeTask.Any(e => e.Id == id);
         }
 
-        void UpdatePacketTypes(IList<PacketTypeToComputeTask> packetTypes, ComputeTask computeTask)
+        void UpdatePacketTypes(ICollection<PacketTypeToComputeTask> packetTypes, ComputeTask computeTask)
         {
             foreach (var packetType in packetTypes)
             {

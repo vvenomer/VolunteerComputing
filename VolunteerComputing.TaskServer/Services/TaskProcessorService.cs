@@ -20,7 +20,7 @@ namespace VolunteerComputing.TaskServer.Services
     public class TaskProcessorService : BackgroundService
     {
         readonly IHubContext<TaskServerHub, ITaskServerHubMessages> taskServerHub;
-        private readonly IServiceScopeFactory scopeFactory;
+        readonly IServiceScopeFactory scopeFactory;
         readonly static Random random = new();
         readonly HubConnection hubConnection;
         static double changeToUseNewDevice = 0.5;
@@ -43,96 +43,63 @@ namespace VolunteerComputing.TaskServer.Services
                 Console.WriteLine("Finished work");
                 await taskServerHub.Clients.All.InformFinished();
             });
-
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            await hubConnection.StartAsync();
+            await hubConnection.StartAsync(stoppingToken);
             Id = hubConnection.ConnectionId;
-            int i = 0, j = 0, k = 0, l = 0;
+
             while (!stoppingToken.IsCancellationRequested)
             {
                 try
                 {
-                    while (!ShouldStartWork)
-                    {
-                        Console.SetCursorPosition(0, 0);
-                        Console.WriteLine("Waiting for work" + Dots(ref i, 3));
-                        await Task.Delay(2000, stoppingToken);
-                    }
-                    Console.SetCursorPosition(0, 0);
-                    Console.WriteLine("Waiting for work: Done");
-                    i = 0;
+                    await WaitForWork(stoppingToken);
+
+                    var devices = await FindAvailableDevices(stoppingToken);
+
+                    var bundles = await CreateAndFindBundles(stoppingToken, devices);
+
                     using var scope = scopeFactory.CreateScope();
                     var context = scope.ServiceProvider.GetRequiredService<VolunteerComputingContext>();
-
-                    IEnumerable<TaskWithPackets> tasksWithPackets = null;
-                    while (ShouldStartWork && !stoppingToken.IsCancellationRequested)
+                    await RefreshDevices(devices, context);
+                    foreach (var bundle in bundles)
                     {
-                        Console.SetCursorPosition(0, 1);
-                        Console.WriteLine("Finding tasks" + Dots(ref j, 3));
-                        var packets = context.Packets.Include(x => x.Type).ThenInclude(p => p.Project).ToList();
-                        var tasks = context.ComputeTask.Include(x => x.PacketTypes).ThenInclude(x => x.PacketType);
+                        var computeTask = bundle.ComputeTask;
 
-                        tasksWithPackets = FindComputeTasksAndPackets(packets, tasks);
+                        var grouped = bundle.Packets
+                            .GroupBy(p => p.Type)
+                            .Select(p => p.Count() > 1 ? AggregatePackets(p.ToList()) : p.FirstOrDefault())
+                            .Select(p => p.Aggregated ? p.Data : ShareAPI.GetTextFromShare(p.Data))
+                            .ToList();
 
-                        if(!tasksWithPackets.Any())
+                        var devicesForBundle = devices
+                            .Except(bundle.BundleResults
+                                .SelectMany(r => r.Packets)
+                                .Select(p => p.DeviceWorkedOnIt));
+
+                        for (int i = bundle.TimesSent; i < computeTask.Project.MinAgreeingClients; i++)
                         {
-                            bool nothingDoesWork = !context.Devices.Any(d => d.TaskServerId == Id && (d.CpuWorks || d.GpuWorks));
-                            if(nothingDoesWork)
+                            var selectedDeviceWithStat = ChooseDevice(devicesForBundle, computeTask);
+                            var selectedDevice = selectedDeviceWithStat?.Device;
+                            var isCpu = selectedDeviceWithStat?.IsCpu??false;
+
+                            if (selectedDevice is not null)
                             {
-                                Console.SetCursorPosition(0, 2);
-                                Console.WriteLine("Finished " + ++k);
+                                bundle.TimesSent++;
 
-                                await hubConnection.SendAsync("ReportFinished");
+                                if (isCpu)
+                                    selectedDevice.CpuWorksOnBundle = bundle.Id;
+                                else
+                                    selectedDevice.GpuWorksOnBundle = bundle.Id;
 
-                                ShouldStartWork = false;
-                                continue; //continue?
+                                context.Entry(bundle).State = EntityState.Modified;
+
+                                var dbSaveAwaiter = context.SaveChangesAsync(stoppingToken);
+                                var data = CompressionHelper.Compress(JsonConvert.SerializeObject(grouped));
+                                await taskServerHub.Clients.Client(selectedDevice.ConnectionId).SendTaskAsync(computeTask.Id, data, isCpu);
+                                await dbSaveAwaiter;
                             }
-                            await Task.Delay(2000, stoppingToken); //wait for new devices
-                            continue;
-                        }
-                        break;
-                    }
-
-                    IEnumerable<DeviceData> devices = null;
-                    while (ShouldStartWork && !stoppingToken.IsCancellationRequested)
-                    {
-                        Console.SetCursorPosition(0, 2);
-                        Console.WriteLine("Finding devices" + Dots(ref l, 3));
-                        devices = context.Devices
-                            .Include(d => d.DeviceStats)
-                            .Where(d => d.TaskServerId == Id)
-                            .Where(d => (d.CpuAvailable && !d.CpuWorks) || (d.GpuAvailable && !d.GpuWorks));
-                        //wait if not found
-                        if (!devices.Any())
-                        {
-                            await Task.Delay(2000, stoppingToken); //wait for new devices
-                            continue;
-                        }
-                        break;
-                    }
-
-                    foreach (var taskWithPackets in tasksWithPackets.ToList())
-                    {
-                        var computeTask = taskWithPackets.ComputeTask;
-                        var (selectedDevice, isCpu) = ChooseDevice(devices, computeTask);
-
-                        if(selectedDevice is not null)
-                        {
-                            context.Packets.RemoveRange(taskWithPackets.PacketsToRemove); //should set as being worked on by device and when device crushes set back or deleted if completes
-
-                            if (isCpu)
-                                selectedDevice.CpuWorks = true;
-                            else
-                                selectedDevice.GpuWorks = true;
-                            var dbSaveAwaiter = context.SaveChangesAsync(stoppingToken);
-                            var packetsToSend = taskWithPackets.PacketsToSend.Select(p => p.Aggregated ? p.Data : ShareAPI.GetTextFromShare(p.Data));
-                            var data = CompressionHelper.Compress(JsonConvert.SerializeObject(packetsToSend));
-                            await taskServerHub.Clients.Client(selectedDevice.ConnectionId).SendTaskAsync(computeTask.Id, data, isCpu);
-                            await dbSaveAwaiter;
-
                         }
                     }
                 }
@@ -141,78 +108,190 @@ namespace VolunteerComputing.TaskServer.Services
                     Console.WriteLine(ex);
                 }
             }
+        }
 
+        Packet AggregatePackets(IList<Packet> packets)
+        {
+            var data = packets
+                .Select(p => ShareAPI.GetTextFromShare(p.Data))
+                .Aggregate((a, b) => $"{a},{b}");
 
-            /*try
+            return new Packet
             {
-                int i = 0, j = 0, k = 0, l = 0;
-                while (!stoppingToken.IsCancellationRequested)
+                Type = packets.FirstOrDefault().Type,
+                Data = $"[{data}]",
+                Aggregated = true
+            };
+        }
+
+        async Task<IEnumerable<PacketBundle>> CreateAndFindBundles(CancellationToken stoppingToken, IEnumerable<DeviceData> devices)
+        {
+            int j = 0, k = 0;
+            List<PacketBundle> bundles = new();
+            while (ShouldStartWork && !stoppingToken.IsCancellationRequested)
+            {
+                using var scope = scopeFactory.CreateScope();
+                var context = scope.ServiceProvider.GetRequiredService<VolunteerComputingContext>();
+                Console.SetCursorPosition(0, 1);
+                Console.WriteLine("Finding tasks" + Dots(ref j, 3));
+                var newPackets = context.Packets
+                    .Include(x => x.Type).ThenInclude(p => p.Project)
+                    .Where(x => x.BundleId == null && x.BundleResultId == null)
+                    .ToList();
+                var tasks = context.ComputeTask
+                    .Include(x => x.Project)
+                    .Include(x => x.PacketTypes).ThenInclude(x => x.PacketType)
+                    .ToList();
+
+                newPackets.AddRange(await FindFinishedBundles(context));
+
+                var existingBundles = context.Bundles
+                    .Include(x => x.Packets)
+                    .Include(x => x.ComputeTask).ThenInclude(x => x.Project)
+                    .Include(x => x.BundleResults).ThenInclude(x => x.Packets).ThenInclude(x => x.DeviceWorkedOnIt)
+                    .Where(x => x.TimesSent < x.ComputeTask.Project.MinAgreeingClients)
+                    .ToList();
+
+                foreach (var bundle in existingBundles)
                 {
-                    while (!ShouldStartWork)
-                    {
-                        Console.SetCursorPosition(0, 0);
-                        Console.WriteLine("Waiting for work" + Dots(ref i, 3));
-                        await Task.Delay(2000, stoppingToken);
-                    }
-                    Console.SetCursorPosition(0, 1);
-                    Console.WriteLine("Finding devices" + Dots(ref j, 3));
-                    using var scope = scopeFactory.CreateScope();
-                    var context = scope.ServiceProvider.GetRequiredService<VolunteerComputingContext>();
-
-                    var aviableDevices = context.Devices.Where(d => (d.CpuAvailable && !d.CpuWorks) || (d.GpuAvailable && !d.GpuWorks));
-
-                    var (selectedDevice, isCpu) = ChooseDevice(aviableDevices);
-
-                    if (selectedDevice is null)
-                    {
-                        await Task.Delay(2000, stoppingToken); //wait for new devices
+                    if (bundle.TimesSent != 0)
                         continue;
-                    }
-
-                    while (ShouldStartWork && !stoppingToken.IsCancellationRequested)
+                    var extendedPackets = bundle.Extend(newPackets);
+                    foreach (var packet in extendedPackets)
                     {
-                        Console.SetCursorPosition(0, 2);
-                        Console.WriteLine("Finding tasks" + Dots(ref k, 3));
-                        var packets = context.Packets.Include(x => x.Type).ToList();
-
-                        var (computeTask, selectedPackets, packetsToDelete) = FindComputeTasksAndPackets(packets, context.ComputeTask.Include(x => x.PacketTypes).ThenInclude(x => x.PacketType)).First();
-                        if (computeTask is null)
-                        {
-                            if (aviableDevices.Count() == context.Devices.Count() && packets.Any())
-                            {
-                                //there are aviable devices, all devices are aviable and there is nothing to do - reset
-
-                                Console.SetCursorPosition(0, 3);
-                                Console.WriteLine("Finished " + ++l);
-                                //to do: create table with project name and use that name to save results
-                                File.WriteAllText(Path.GetRandomFileName() + "_result.json", JsonConvert.SerializeObject(packets.Select(x => ShareAPI.GetTextFromShare(x.Data))));
-                                context.Packets.RemoveRange(packets);
-                                await context.SaveChangesAsync();
-                                ShouldStartWork = false;
-                                continue;
-                            }
-                            await Task.Delay(500, stoppingToken); //can't do any task -> wait for new results
-                            continue;
-                        }
-                        //if eg. isCpu && selectedDevice.IsWindows && computeTask.WindowsCpuProgram is null -> can't do - find new task? new device?
-                        context.Packets.RemoveRange(packetsToDelete); //delete files from share too (or wait?)
-
-                        var dbSaveAwaiter = context.SaveChangesAsync(stoppingToken);
-                        if (isCpu)
-                            selectedDevice.CpuWorks = true;
-                        else
-                            selectedDevice.GpuWorks = true;
-                        var data = JsonConvert.SerializeObject(selectedPackets.Select(p => p.Data).Select(d => ShareAPI.GetTextFromShare(d)));
-                        await taskServerHub.Clients.Client(selectedDevice.ConnectionId).SendTaskAsync(computeTask.Id, data, isCpu);
-                        await dbSaveAwaiter;
-                        break;
+                        newPackets.Remove(packet);
                     }
                 }
+
+                var newBundles = CreateBundles(newPackets, tasks, devices).ToList();
+
+                foreach (var bundle in newBundles)
+                {
+                    context.Bundles.Add(bundle);
+                }
+                await context.SaveChangesAsync();
+                bundles.AddRange(existingBundles);
+                bundles.AddRange(newBundles);
+
+                if (!bundles.Any())
+                {
+                    bool nothingDoesWork = !devices.Any(d => d.TaskServerId == Id && (d.CpuWorksOnBundle != 0 || d.GpuWorksOnBundle != 0));
+                    if (nothingDoesWork)
+                    {
+                        Console.SetCursorPosition(0, 2);
+                        Console.WriteLine("Finished " + ++k);
+
+                        await hubConnection.SendAsync("ReportFinished", cancellationToken: stoppingToken);
+
+                        ShouldStartWork = false;
+                        continue; //continue?
+                    }
+                    await RefreshDevices(devices, context);
+                    await Task.Delay(2000, stoppingToken); //wait for new devices
+                    continue;
+                }
+                break;
             }
-            catch (Exception ex)
+
+            return bundles;
+        }
+
+        private static async Task RefreshDevices(IEnumerable<DeviceData> devices, VolunteerComputingContext context)
+        {
+            await Task.WhenAll(devices.Select(async d => await context.Entry(d).ReloadAsync())); //refresh devices
+        }
+
+        private async Task<IEnumerable<Packet>> FindFinishedBundles(VolunteerComputingContext context)
+        {
+            List<Packet> packets = new();
+            var bundleReults = context.BundleResults
+                .AsSplitQuery()
+                .Include(x => x.Packets)
+                .Include(x => x.Bundle)
+                    .ThenInclude(x => x.ComputeTask).ThenInclude(x => x.Project)
+                .Include(x => x.Bundle.Packets)
+                .AsEnumerable()
+                .GroupBy(x => x.Bundle);
+            foreach (var result in bundleReults)
             {
-                Console.WriteLine(ex);
-            }*/
+                var bundle = result.Key;
+                if (bundle.UntilCheck > 0)
+                    continue;
+                var min = result.Key.ComputeTask.Project.MinAgreeingClients;
+                var mostAgreedResult = result
+                    .GroupBy(x => x.DataHash)
+                    .OrderByDescending(x => x.Count())
+                    .FirstOrDefault()
+                    .ToList();
+                if(mostAgreedResult.Count < min)
+                {
+                    bundle.UntilCheck++;
+                    bundle.TimesSent--;
+                    continue;
+                }
+                var toKeep = mostAgreedResult.FirstOrDefault();
+                var toRemove = result
+                    .Where(x => x.Id != toKeep.Id);
+
+                context.Packets.RemoveRange(toRemove.SelectMany(x => x.Packets)); //todo: delete from share
+                foreach (var packet in toKeep.Packets)
+                {
+                    packet.BundleId = null;
+                    packet.Bundle = null;
+                    packet.BundleResultId = null;
+                    packet.BundleResult = null;
+                    packet.DeviceWorkedOnIt = null;
+                }
+                context.BundleResults.RemoveRange(result);
+
+                context.Packets.RemoveRange(bundle.Packets); //todo: delete from share
+                context.Bundles.Remove(bundle);
+
+                packets.AddRange(toKeep.Packets);
+            }
+            await context.SaveChangesAsync();
+            return packets;
+        }
+
+        static async Task WaitForWork(CancellationToken stoppingToken)
+        {
+            int i = 0;
+            while (!ShouldStartWork)
+            {
+                Console.SetCursorPosition(0, 0);
+                Console.WriteLine("Waiting for work" + Dots(ref i, 3));
+                await Task.Delay(2000, stoppingToken);
+            }
+            Console.SetCursorPosition(0, 0);
+            Console.WriteLine("Waiting for work: Done");
+        }
+
+        async Task<IEnumerable<DeviceData>> FindAvailableDevices(CancellationToken stoppingToken)
+        {
+            int l = 0;
+            IEnumerable<DeviceData> devices = null;
+            while (ShouldStartWork && !stoppingToken.IsCancellationRequested)
+            {
+                using var scope = scopeFactory.CreateScope();
+                var context = scope.ServiceProvider.GetRequiredService<VolunteerComputingContext>();
+
+                Console.SetCursorPosition(0, 2);
+                Console.WriteLine("Finding devices" + Dots(ref l, 3));
+                devices = context.Devices
+                    .Include(d => d.DeviceStats)
+                    .Where(d => d.TaskServerId == Id)
+                    .AsEnumerable()
+                    .Where(d => d.IsAvailable)
+                    .ToList();
+                //wait if not found
+                if (!devices.Any())
+                {
+                    await Task.Delay(2000, stoppingToken); //wait for new devices
+                    continue;
+                }
+                break;
+            }
+            return devices;
         }
 
         static string Dots(ref int numberOfDots, int max)
@@ -224,35 +303,35 @@ namespace VolunteerComputing.TaskServer.Services
             return new string(Enumerable.Range(0, max).Select(n => n < i ? '.' : ' ').ToArray());
         }
 
-        private static (DeviceData device, bool isCpu) ChooseDevice(IEnumerable<DeviceData> aviableDevices, ComputeTask computeTask)
+        static DeviceWithStat ChooseDevice(IEnumerable<DeviceData> aviableDevices, ComputeTask computeTask)
         {
             List<DeviceWithStat> devices = new();
 
             if(computeTask.WindowsCpuProgram is not null)
             {
                 var newDevices = aviableDevices
-                    .Where(d => d.IsWindows && d.CpuAvailable && !d.CpuWorks)
+                    .Where(d => d.IsWindows && d.CpuAvailable && d.CpuWorksOnBundle == 0)
                     .Select(d => new DeviceWithStat(d, true, d.DeviceStats.FirstOrDefault(s => s.ComputeTask == computeTask && s.IsCpu)));
                 devices.AddRange(newDevices);
             }
             if (computeTask.WindowsGpuProgram is not null)
             {
                 var newDevices = aviableDevices
-                    .Where(d => d.IsWindows && d.GpuAvailable && !d.GpuWorks)
+                    .Where(d => d.IsWindows && d.GpuAvailable && d.GpuWorksOnBundle == 0)
                     .Select(d => new DeviceWithStat(d, false, d.DeviceStats.FirstOrDefault(s => s.ComputeTask == computeTask && !s.IsCpu)));
                 devices.AddRange(newDevices);
             }
             if (computeTask.LinuxCpuProgram is not null)
             {
                 var newDevices = aviableDevices
-                    .Where(d => !d.IsWindows && d.CpuAvailable && !d.CpuWorks)
+                    .Where(d => !d.IsWindows && d.CpuAvailable && d.CpuWorksOnBundle == 0)
                     .Select(d => new DeviceWithStat(d, true, d.DeviceStats.FirstOrDefault(s => s.ComputeTask == computeTask && s.IsCpu)));
                 devices.AddRange(newDevices);
             }
             if (computeTask.LinuxGpuProgram is not null)
             {
                 var newDevices = aviableDevices
-                    .Where(d => !d.IsWindows && d.GpuAvailable && !d.GpuWorks)
+                    .Where(d => !d.IsWindows && d.GpuAvailable && d.GpuWorksOnBundle == 0)
                     .Select(d => new DeviceWithStat(d, false, d.DeviceStats.FirstOrDefault(s => s.ComputeTask == computeTask && !s.IsCpu)));
                 devices.AddRange(newDevices);
             }
@@ -273,63 +352,51 @@ namespace VolunteerComputing.TaskServer.Services
                     .FirstOrDefault();
             }
 
-            return (device?.Device, device?.IsCpu??false);
+            return device;
         }
 
-        private static IEnumerable<TaskWithPackets> FindComputeTasksAndPackets(IEnumerable<Packet> packets, IEnumerable<ComputeTask> computeTasks)
+        static IEnumerable<PacketBundle> CreateBundles(List<Packet> packets, IEnumerable<ComputeTask> computeTasks, IEnumerable<DeviceData> devices)
         {
             foreach (var computeTask in computeTasks)
             {
-                var tempPackets = packets.ToList();
-                var selectednewPackets = new List<Packet>();
-                var selectedPackets = new List<Packet>();
-                var inputPacketTypes = computeTask.PacketTypes
-                    .Where(p => p.IsInput)
-                    .OrderBy(p => p.Id)
-                    .Select(p => p.PacketType)
-                    .ToList();
-                foreach (var packetType in inputPacketTypes)
-                {
+                if (!devices.Any(d => d.CanCalculate(computeTask)))
+                    break;
 
-                    if (packetType.Aggregable)
+                while(true)
+                {
+                    var selectedPackets = new List<Packet>();
+                    var inputPacketTypes = computeTask.PacketTypes
+                        .Where(p => p.IsInput)
+                        .OrderBy(p => p.Id)
+                        .Select(p => p.PacketType)
+                        .ToList();
+                    var addedCount = 0;
+                    foreach (var packetType in inputPacketTypes)
                     {
-                        var alreadyAgdregated = tempPackets.FirstOrDefault(t => t.Aggregated);
-                        if (alreadyAgdregated is not null)
+                        if (packetType.Aggregable)
                         {
-                            selectednewPackets.Add(alreadyAgdregated);
-                            selectedPackets.Add(alreadyAgdregated);
-                            tempPackets.Remove(alreadyAgdregated);
+                            var packetsToSelect = packets.Where(t => t.Type == packetType).ToHashSet();
+                            if (packetsToSelect.Count < 2)
+                                break;
+                            selectedPackets.AddRange(packetsToSelect);
+                            packets.RemoveAll((Packet x) => packetsToSelect.Contains(x));
                         }
                         else
                         {
-                            var packetsToSelect = tempPackets.Where(t => t.Type == packetType).ToHashSet();
-                            if (packetsToSelect.Count < 2)
-                                break; //not enough to aggregate
-                            var data = packetsToSelect
-                                .Select(p => $"{ShareAPI.GetTextFromShare(p.Data)}")
-                                .Aggregate((a, b) => $"{a},{b}");
-                            selectedPackets.AddRange(packetsToSelect);
-                            selectednewPackets.Add(new Packet
-                            {
-                                Type = packetType,
-                                Data = $"[{data}]",
-                                Aggregated = true
-                            });
-                            tempPackets.RemoveAll(x => packetsToSelect.Contains(x));
+                            var packetToSelect = packets.FirstOrDefault(t => t.Type == packetType);
+                            if (packetToSelect == null)
+                                break;
+                            selectedPackets.Add(packetToSelect);
+                            packets.Remove(packetToSelect);
                         }
+                        addedCount++;
                     }
+                    if (addedCount == inputPacketTypes.Count)
+                        yield return new PacketBundle { ComputeTask = computeTask, Packets = selectedPackets, UntilCheck = computeTask.Project.MinAgreeingClients, BundleResults = new List<BundleResult>() };
                     else
-                    {
-                        var packetToSelect = tempPackets.FirstOrDefault(t => t.Type == packetType);
-                        if (packetToSelect == null)
-                            break;
-                        selectednewPackets.Add(packetToSelect);
-                        selectedPackets.Add(packetToSelect);
-                        tempPackets.Remove(packetToSelect);
-                    }
+                        break;
+                    continue;
                 }
-                if (selectednewPackets.Count == inputPacketTypes.Count)
-                    yield return new TaskWithPackets { ComputeTask = computeTask, PacketsToSend = selectednewPackets, PacketsToRemove = selectedPackets };
             }
         }
 
@@ -352,20 +419,16 @@ namespace VolunteerComputing.TaskServer.Services
                     time = stat.TimeSum / stat.Count;
                     energy = stat.EnergySum / stat.Count - baseConsumption;
                 }
+                SpeedEfficiency = 1 / time;
+                EnergyEfficiency = 1 / time / energy;
+                EnergyWithoutTime = 1 / time;
             }
 
             public DeviceData Device { get; }
             public bool IsCpu { get; }
-            public double SpeedEfficiency => 1 / time;
-            public double EnergyEfficiency => 1 / time / energy;
-            public double EnergyWithoutTime => 1 / time;
-        }
-
-        class TaskWithPackets
-        {
-            public ComputeTask ComputeTask { get; set; }
-            public List<Packet> PacketsToSend { get; set; }
-            public List<Packet> PacketsToRemove { get; set; }
+            public double SpeedEfficiency { get; }
+            public double EnergyEfficiency { get; }
+            public double EnergyWithoutTime { get; }
         }
     }
 }

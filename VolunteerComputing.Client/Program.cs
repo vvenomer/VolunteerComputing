@@ -281,12 +281,12 @@ namespace VolunteerComputing.Client
             var programData = await connection.InvokeAsync<ProgramData>("GetProgram", programId, isWindows, useCpu);
             if (programData.ExeName is null)
             {
-                File.WriteAllBytes(file, CompressionHelper.DecompressFile(programData.Program));
+                File.WriteAllBytes(file, CompressionHelper.DecompressData(programData.Program));
             }
             else
             {
                 var zipFile = Path.GetRandomFileName() + ".zip";
-                File.WriteAllBytes(zipFile, CompressionHelper.DecompressFile(programData.Program));
+                File.WriteAllBytes(zipFile, CompressionHelper.DecompressData(programData.Program));
                 var filesInDir = Directory.GetFiles(dir);
                 foreach (var fileInDir in filesInDir)
                 {
