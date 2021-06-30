@@ -7,12 +7,13 @@ namespace VolunteerComputing.Shared.Models
     {
         public int Id { get; set; }
 
-        public IList<PacketTypeToComputeTask> PacketTypes { get; set; }
+        public ICollection<PacketTypeToComputeTask> PacketTypes { get; set; }
         public string WindowsCpuProgram { get; set; }
         public string WindowsGpuProgram { get; set; }
 
         public string LinuxCpuProgram { get; set; }
         public string LinuxGpuProgram { get; set; }
         public string ExeFilename { get; set; }
+        public Project Project { get; set; }
     }
 }

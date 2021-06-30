@@ -4,6 +4,7 @@ using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 using VolunteerComputing.Shared;
@@ -27,7 +28,8 @@ namespace VolunteerComputing.TaskServer.Hubs
             var device = dbContext.Devices.FirstOrDefault(d => d.ConnectionId == Context.ConnectionId);
             if (device is not null)
             {
-                dbContext.Devices.Remove(device);
+                device.TaskServerId = null;
+                device.ConnectionId = null;
                 await dbContext.SaveChangesAsync();
             }
             await base.OnDisconnectedAsync(exception);
@@ -37,11 +39,15 @@ namespace VolunteerComputing.TaskServer.Hubs
         {
             //update device data
             var thisDevice = dbContext.Devices.Include(x => x.DeviceStats).ThenInclude(x => x.ComputeTask).FirstOrDefault(d => d.ConnectionId == Context.ConnectionId);
+
+            var bundle = dbContext.Bundles.Find(cpu ? thisDevice.CpuWorksOnBundle : thisDevice.GpuWorksOnBundle);
+            bundle.UntilCheck--;
+
             if (cpu)
-                thisDevice.CpuWorks = false;
+                thisDevice.CpuWorksOnBundle = 0;
             else
-                thisDevice.GpuWorks = false;
-            //save speed?
+                thisDevice.GpuWorksOnBundle = 0;
+
             var computeTask = dbContext.ComputeTask
                 .Include(x => x.PacketTypes)
                 .ThenInclude(x => x.PacketType)
@@ -53,9 +59,14 @@ namespace VolunteerComputing.TaskServer.Hubs
 
             if (dbContext.Entry(stats).State == EntityState.Detached)
                 dbContext.Add(stats);
-            
+
+            using var sha = SHA256.Create();
+            var decompressed = CompressionHelper.DecompressData(result);
+
+            var bundleResult = new BundleResult { DataHash = sha.ComputeHash(decompressed), Bundle = bundle };
+
             //get and save packets from result
-            var results = JsonConvert.DeserializeObject<List<List<string>>>(CompressionHelper.Decompress(result));
+            var results = JsonConvert.DeserializeObject<List<List<string>>>(Encoding.Unicode.GetString(decompressed));
             var newPackets = computeTask
                 .PacketTypes
                 .Where(p => !p.IsInput)
@@ -63,12 +74,14 @@ namespace VolunteerComputing.TaskServer.Hubs
                 .Zip(results)
                 .Select(x => x.Second
                     .Select(d => ShareAPI.SaveTextToShare(d))
-                    .Select(data => new Packet { Type = x.First, Data = data }))
+                    .Select(data => new Packet { Type = x.First, Data = data, DeviceWorkedOnIt = thisDevice, BundleResult = bundleResult }))
                 .SelectMany(x => x);
             foreach (var packet in newPackets)
             {
                 dbContext.Packets.Add(packet);
             }
+            dbContext.BundleResults.Add(bundleResult);
+
             await dbContext.SaveChangesAsync();
         }
 
@@ -82,7 +95,7 @@ namespace VolunteerComputing.TaskServer.Hubs
                 : (cpu
                     ? task.LinuxCpuProgram
                     : task.LinuxGpuProgram);
-            var program = CompressionHelper.CompressFile(ShareAPI.GetFromShare(programPath));
+            var program = CompressionHelper.CompressData(ShareAPI.GetFromShare(programPath));
             return new ProgramData { Program = program, ExeName = task.ExeFilename };
         }
 
@@ -92,8 +105,8 @@ namespace VolunteerComputing.TaskServer.Hubs
                 device = dbContext.Devices.Find(device.Id);
 
             device.ConnectionId = Context.ConnectionId;
-            device.CpuWorks = false;
-            device.GpuWorks = false;
+            device.CpuWorksOnBundle = 0;
+            device.GpuWorksOnBundle = 0;
             device.TaskServerId = TaskProcessorService.Id;
 
             if (device.Id == 0)

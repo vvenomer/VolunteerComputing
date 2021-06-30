@@ -2,9 +2,11 @@
 @using System.IO
 @using VolunteerComputing.Shared.Models
 @inject HttpClient Http
-<EditForm Model="@ProjectName">
+<EditForm Model="@Project">
     Project Name
-    <input @bind="ProjectName" /><br>
+    <input @bind="Project.Name" /><br>
+    How many volunteers should agree to consider result as true? 
+    <input type="number" @bind="Project.MinAgreeingClients"/><br>
 
     @foreach (var packetType in packetTypes)
     {
@@ -85,12 +87,12 @@
     List<bool> areZipFiles = new List<bool>();
     string packetType = "";
     string packetData = "";
-    string ProjectName { get; set; } = "";
+    Project Project { get; set; } = new Project() { MinAgreeingClients = 2 };
     long maxSize = 1024 * 1024;
 
     protected override async Task OnInitializedAsync()
     {
-        ProjectName = "collatz";
+        Project.Name = "collatz";
 
         packetTypes.Add(new PacketType { Type = "input" });
         packetTypes.Add(new PacketType { Type = "numbers" });
@@ -207,12 +209,11 @@
 
     async Task Save()
     {
-        var project = new Project { Name = ProjectName };
-        var res = await Http.PostAsJsonAsync("api/Projects", project);
+        var res = await Http.PostAsJsonAsync("api/Projects", Project);
         if (!res.IsSuccessStatusCode)
             Console.WriteLine("Error saving project: " + res.StatusCode);
         res = await Http.PostAsJsonAsync("api/PacketTypes", packetTypes
-        .Select(p => new PacketType() { Type = p.Type, Aggregable = p.Aggregable, Project = project })
+        .Select(p => new PacketType() { Type = p.Type, Aggregable = p.Aggregable, Project = Project })
         .ToList());
         if (!res.IsSuccessStatusCode)
             Console.WriteLine("Error saving types: " + res.StatusCode);
@@ -231,7 +232,7 @@
                 {
                     Aggregable = t.PacketType.Aggregable,
                     Type = t.PacketType.Type,
-                    Project = project
+                    Project = Project
                 }
             }).ToList()
         });
@@ -253,7 +254,7 @@
             {
                 Type = type.Type,
                 Aggregable = type.Aggregable,
-                Project = new Project { Name = ProjectName }
+                Project = Project
             }
         };
         await Http.PostAsJsonAsync("api/Packets", packet);

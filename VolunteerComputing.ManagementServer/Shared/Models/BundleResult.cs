@@ -6,10 +6,13 @@ using System.Threading.Tasks;
 
 namespace VolunteerComputing.Shared.Models
 {
-    public class Project
+    public class BundleResult
     {
         public int Id { get; set; }
-        public string Name { get; set; }
-        public int MinAgreeingClients { get; set; }
+        public byte[] DataHash { get; set; }
+
+        public PacketBundle Bundle { get; set; }
+
+        public ICollection<Packet> Packets { get; set; }
     }
 }

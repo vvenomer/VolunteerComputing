@@ -27,6 +27,8 @@ namespace VolunteerComputing.TaskServer.Data
         public virtual DbSet<DeviceData> Devices { get; set; }
         public virtual DbSet<DeviceStat> DeviceStats { get; set; }
         public virtual DbSet<Project> Projects { get; set; }
+        public virtual DbSet<PacketBundle> Bundles { get; set; }
+        public virtual DbSet<BundleResult> BundleResults { get; set; }
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {

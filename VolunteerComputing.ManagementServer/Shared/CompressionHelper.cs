@@ -10,7 +10,7 @@ namespace VolunteerComputing.Shared
 {
     public class CompressionHelper
     {
-        public static byte[] CompressFile(byte[] data)
+        public static byte[] CompressData(byte[] data)
         {
             var output = new MemoryStream();
             {
@@ -19,7 +19,7 @@ namespace VolunteerComputing.Shared
             }
             return output.ToArray();
         }
-        public static byte[] DecompressFile(byte[] data)
+        public static byte[] DecompressData(byte[] data)
         {
             var output = new MemoryStream();
             {
@@ -32,22 +32,11 @@ namespace VolunteerComputing.Shared
         public static byte[] Compress(string str)
         {
             var data = Encoding.Unicode.GetBytes(str);
-            var output = new MemoryStream();
-            {
-                using var stream = new GZipStream(output, CompressionLevel.Optimal);
-                stream.Write(data, 0, data.Length);
-            }
-            return output.ToArray();
+            return CompressData(data);
         }
         public static string Decompress(byte[] data)
         {
-            var output = new MemoryStream();
-            {
-                using var stream = new GZipStream(new MemoryStream(data), CompressionMode.Decompress);
-                stream.CopyTo(output);
-            }
-
-            return Encoding.Unicode.GetString(output.ToArray());
+            return Encoding.Unicode.GetString(DecompressData(data));
         }
     }
 }

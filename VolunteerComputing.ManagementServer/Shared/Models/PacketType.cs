@@ -11,7 +11,7 @@ namespace VolunteerComputing.Shared.Models
 
         public Project Project { get; set; } //collaz
 
-        public IList<PacketTypeToComputeTask> ComputeTasks { get; set; }
+        public ICollection<PacketTypeToComputeTask> ComputeTasks { get; set; }
 
         public override bool Equals(object obj)
         {
