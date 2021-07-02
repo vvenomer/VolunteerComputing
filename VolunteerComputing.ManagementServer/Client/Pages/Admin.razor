@@ -1,0 +1,81 @@
+﻿@page "/admin"
+
+@using Microsoft.AspNetCore.Authorization
+@using VolunteerComputing.Shared.Models
+@attribute [Authorize(Roles = "Admin")]
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager NavManager
+@inject HttpClient Http
+
+<h3>Admin panel</h3>
+
+<table>
+    <thead>
+        <tr>
+            <th>User</th>
+            @foreach (var role in roles)
+            {
+                <th>@role</th>
+            }
+        </tr>
+    </thead>
+    <tbody>
+        @for (int i = 0; i < users.Count; i++)
+        {
+            var locali = i;
+            var user = users[locali];
+            <tr>
+                <td>@user.Name</td>
+                @for (int j = 0; j < roles.Count; j++)
+                {
+                    var localj = j;
+                    <td><input type="checkbox" @bind="userRoles[locali][localj]" /></td>
+                }
+                <td><button @onclick="async () => await SaveUserChanges(locali)">Save</button></td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+@code {
+    IList<string> roles = new List<string>();
+    IList<UserWithRoles> users = new List<UserWithRoles>();
+    bool[][] userRoles;
+    protected override async Task OnInitializedAsync()
+    {
+        roles = await Http.GetFromJsonAsync<IList<string>>("api/Admins/GetRoles");
+        users = await Http.GetFromJsonAsync<IList<UserWithRoles>>("api/Admins/GetUsers");
+        SetUserRoles();
+    }
+
+    async Task SaveUserChanges(int userId)
+    {
+        ApplyUserRolesToUser(userId);
+        await Http.PostAsJsonAsync("api/Admins/UpdateUserRoles", users[userId]);
+    }
+
+    void ApplyUserRolesToUser(int userId)
+    {
+        var user = users[userId];
+        user.Roles.Clear();
+        for (int i = 0; i < roles.Count; i++)
+        {
+            if (userRoles[userId][i])
+                user.Roles.Add(roles[i]);
+        }
+    }
+
+    void SetUserRoles()
+    {
+        userRoles = new bool[users.Count][];
+        for (int i = 0; i < users.Count; i++)
+        {
+            userRoles[i] = new bool[roles.Count];
+            var user = users[i];
+            for (int j = 0; j < roles.Count; j++)
+            {
+                userRoles[i][j] = user.Roles.Contains(roles[j]);
+            }
+        }
+    }
+}

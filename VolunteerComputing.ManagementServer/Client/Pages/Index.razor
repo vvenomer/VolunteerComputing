@@ -1,12 +1,17 @@
 ﻿@page "/"
 @using System.IO
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.WebAssembly.Authentication
 @using VolunteerComputing.Shared.Models
+@attribute [Authorize(Roles = "Editor,Admin")]
 @inject HttpClient Http
+@inject NavigationManager NavManager
+@inject AuthenticationStateProvider AuthenticationStateProvider
 <EditForm Model="@Project">
     Project Name
     <input @bind="Project.Name" /><br>
-    How many volunteers should agree to consider result as true? 
-    <input type="number" @bind="Project.MinAgreeingClients"/><br>
+    How many volunteers should agree to consider result as true?
+    <input type="number" @bind="Project.MinAgreeingClients" /><br>
 
     @foreach (var packetType in packetTypes)
     {
@@ -57,7 +62,7 @@
         <text>Windows Gpu:</text><InputFile OnChange="@((e) => LoadFile(e, locali, true, false))" /><br>
         <text>Linux Cpu:</text><InputFile OnChange="@((e) => LoadFile(e, locali, false, true))" /><br>
         <text>Linux Gpu:</text><InputFile OnChange="@((e) => LoadFile(e, locali, false, false))" /><br>
-        <text>Is .zip file?</text><input type="checkbox" @bind="areZipFiles[locali]"/>
+        <text>Is .zip file?</text><input type="checkbox" @bind="areZipFiles[locali]" />
         @if (areZipFiles[locali])
         {
             <text>Exe name:</text><InputText @bind-Value="computeTask.ExeFilename" />
@@ -89,9 +94,14 @@
     string packetData = "";
     Project Project { get; set; } = new Project() { MinAgreeingClients = 2 };
     long maxSize = 1024 * 1024;
-
+    bool isEditor;
     protected override async Task OnInitializedAsync()
     {
+        /*var state = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        isEditor = state.User.IsInRole("Editor");
+        if (!isEditor)
+            QueryParser.AccessDenied(QueryParser.RedirectValues.CreateProject, NavManager);*/
+
         Project.Name = "collatz";
 
         packetTypes.Add(new PacketType { Type = "input" });
