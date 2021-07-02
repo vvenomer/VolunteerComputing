@@ -46,10 +46,6 @@
         roles = await Http.GetFromJsonAsync<IList<string>>("api/Admins/GetRoles");
         users = await Http.GetFromJsonAsync<IList<UserWithRoles>>("api/Admins/GetUsers");
         SetUserRoles();
-        /*var state = await AuthenticationStateProvider.GetAuthenticationStateAsync();
-        var isAdmin = state.User.IsInRole("Admin");
-        if (!isAdmin)
-            QueryParser.AccessDenied(QueryParser.RedirectValues.AdminPanel, NavManager);*/
     }
 
     async Task SaveUserChanges(int userId)
