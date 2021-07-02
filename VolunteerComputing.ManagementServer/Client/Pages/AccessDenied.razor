@@ -1,0 +1,29 @@
+﻿@page "/access-denied"
+
+@using Microsoft.AspNetCore.WebUtilities
+@inject NavigationManager NavManager
+<h1>Access denied</h1>
+
+You don't have permissions to @(page). Contact admin to verify your account.
+
+@code {
+    static readonly Dictionary<QueryParser.RedirectValues, string> RedirectValueResponses = new()
+    {
+        [QueryParser.RedirectValues.AdminPanel] = "view administrator panael",
+        [QueryParser.RedirectValues.CreateProject] = "create new projects",
+        [QueryParser.RedirectValues.ViewProjects] = "view existing projects",
+    };
+    string page = "that page";
+    protected override async Task OnInitializedAsync()
+    {
+        var queryParser = new QueryParser(NavManager);
+        var rediredted = queryParser[QueryParser.RedirectFromKey];
+        if (rediredted is not null)
+        {
+            var redirectValue = QueryParser.RedirectDictionary.FirstOrDefault(x => x.Value == rediredted).Key;
+            if(RedirectValueResponses.ContainsKey(redirectValue))
+                page = RedirectValueResponses[redirectValue];
+        }
+    }
+
+}

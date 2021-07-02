@@ -16,7 +16,7 @@ namespace VolunteerComputing.ManagementServer.Client
 
             builder.Services
                 .AddHttpClient("VolunteerComputing.ManagementServer.ServerAPI", client => client.BaseAddress = new Uri(builder.HostEnvironment.BaseAddress))
-                /*.AddHttpMessageHandler<BaseAddressAuthorizationMessageHandler>()*/;
+                .AddHttpMessageHandler<BaseAddressAuthorizationMessageHandler>();
 
             // Supply HttpClient instances that include access tokens when making requests to the server project
             builder.Services.AddScoped(sp => sp.GetRequiredService<IHttpClientFactory>().CreateClient("VolunteerComputing.ManagementServer.ServerAPI"));
