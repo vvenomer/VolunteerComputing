@@ -8,6 +8,7 @@ namespace VolunteerComputing.Shared.Models
         public int Id { get; set; }
 
         public ICollection<PacketTypeToComputeTask> PacketTypes { get; set; }
+        public ICollection<DeviceStat> DeviceStats { get; set; }
         public string WindowsCpuProgram { get; set; }
         public string WindowsGpuProgram { get; set; }
 

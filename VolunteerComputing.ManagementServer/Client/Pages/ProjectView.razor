@@ -1,0 +1,68 @@
+﻿@page "/project/{Id:int}"
+@using VolunteerComputing.Shared.Models
+@inject HttpClient Http
+@inject NavigationManager NavigationManager
+<h3>Project @project.Name</h3>
+Minimum number of agreeing volunteer clients to consider result true: @project.MinAgreeingClients
+
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Windows CPU program</th>
+            <th>Windows GPU program</th>
+            <th>Linux CPU program</th>
+            <th>Linux GPU program</th>
+            <th>Exe name in Zip</th>
+            <th>Inputs</th>
+            <th>Outputs</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var computeTask in project.ComputeTasks)
+        {
+            var inputs = computeTask.PacketTypes.Where(t => t.IsInput).Select(t => t.PacketType).Select(t => (t.Type, t.Aggregable));
+            var outputs = computeTask.PacketTypes.Where(t => !t.IsInput).Select(t => t.PacketType).Select(t => (t.Type, t.Aggregable));
+            <tr>
+                <td>@(!string.IsNullOrEmpty(computeTask.WindowsCpuProgram))</td>
+
+                <td>@(!string.IsNullOrEmpty(computeTask.WindowsGpuProgram))</td>
+
+                <td>@(!string.IsNullOrEmpty(computeTask.LinuxCpuProgram))</td>
+
+                <td>@(!string.IsNullOrEmpty(computeTask.LinuxGpuProgram))</td>
+
+                <td>@(string.IsNullOrEmpty(computeTask.ExeFilename) ? "No a zip" : computeTask.ExeFilename)</td>
+
+                <td>@string.Join(", ", inputs.Select(x => x.Type + (x.Aggregable ? " (aggregable)" : "")))</td>
+
+                <td>@string.Join(", ", outputs.Select(x => x.Type + (x.Aggregable ? " (aggregable)" : "")))</td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+<button class="btn btn-primary" @onclick="Delete">Delete</button>
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    Project project = new Project { ComputeTasks = new List<ComputeTask>() };
+
+    protected override async Task OnInitializedAsync()
+    {
+        var project = await Http.GetFromJsonAsync<Project>($"api/Projects/{Id}");
+        if (project is not null)
+        {
+            project.ComputeTasks = await Http.GetFromJsonAsync<List<ComputeTask>>($"api/ComputeTasks/ByProject/{Id}");
+            this.project = project;
+        }
+    }
+
+    async Task Delete()
+    {
+        var result = await Http.DeleteAsync($"api/Projects/{Id}");
+        if (result.IsSuccessStatusCode)
+            NavigationManager.NavigateTo("projects");
+    }
+}
