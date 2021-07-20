@@ -1,0 +1,20 @@
+﻿@page "/projects"
+@using VolunteerComputing.Shared.Models
+@inject HttpClient Http
+<h3>List of projects</h3>
+
+@foreach (var project in projects)
+{
+    var href = $"project/{project.Id}";
+    <a href="@href">@project.Name</a>
+}
+
+@code {
+    //to do: enable deleting projects
+
+    IList<Project> projects = new List<Project>();
+    protected override async Task OnInitializedAsync()
+    {
+        projects = await Http.GetFromJsonAsync<IList<Project>>("api/Projects");
+    }
+}

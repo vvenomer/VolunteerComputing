@@ -1,12 +1,9 @@
 ﻿@page "/"
 @using System.IO
 @using Microsoft.AspNetCore.Authorization
-@using Microsoft.AspNetCore.Components.WebAssembly.Authentication
 @using VolunteerComputing.Shared.Models
 @attribute [Authorize(Roles = "Editor,Admin")]
 @inject HttpClient Http
-@inject NavigationManager NavManager
-@inject AuthenticationStateProvider AuthenticationStateProvider
 <EditForm Model="@Project">
     Project Name
     <input @bind="Project.Name" /><br>
@@ -94,14 +91,9 @@
     string packetData = "";
     Project Project { get; set; } = new Project() { MinAgreeingClients = 2 };
     long maxSize = 1024 * 1024;
-    bool isEditor;
+
     protected override async Task OnInitializedAsync()
     {
-        /*var state = await AuthenticationStateProvider.GetAuthenticationStateAsync();
-        isEditor = state.User.IsInRole("Editor");
-        if (!isEditor)
-            QueryParser.AccessDenied(QueryParser.RedirectValues.CreateProject, NavManager);*/
-
         Project.Name = "collatz";
 
         packetTypes.Add(new PacketType { Type = "input" });
@@ -222,9 +214,12 @@
         var res = await Http.PostAsJsonAsync("api/Projects", Project);
         if (!res.IsSuccessStatusCode)
             Console.WriteLine("Error saving project: " + res.StatusCode);
+
+        var updatedProject = await res.Content.ReadFromJsonAsync<Project>();
+
         res = await Http.PostAsJsonAsync("api/PacketTypes", packetTypes
-        .Select(p => new PacketType() { Type = p.Type, Aggregable = p.Aggregable, Project = Project })
-        .ToList());
+            .Select(p => new PacketType() { Type = p.Type, Aggregable = p.Aggregable, Project = Project })
+            .ToList());
         if (!res.IsSuccessStatusCode)
             Console.WriteLine("Error saving types: " + res.StatusCode);
 
@@ -247,7 +242,7 @@
             }).ToList()
         });
 
-        res = await Http.PostAsJsonAsync("api/ComputeTasks", parsedComputeTasks);
+        res = await Http.PostAsJsonAsync($"api/ComputeTasks?projectId={updatedProject.Id}", parsedComputeTasks);
         if (!res.IsSuccessStatusCode)
             Console.WriteLine("Error saving tasks: " + res.StatusCode);
     }

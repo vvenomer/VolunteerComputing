@@ -42,6 +42,22 @@ namespace VolunteerComputing.ManagementServer.Server.Controllers
             return computeTask;
         }
 
+        [HttpGet("ByProject/{projectId}")]
+        public ActionResult<IEnumerable<ComputeTask>> GetComputeTasksByProject(int projectId)
+        {
+            var project =  _context.Projects
+                .AsSplitQuery()
+                .Include(p => p.ComputeTasks)
+                .ThenInclude(t => t.PacketTypes)
+                .ThenInclude(x => x.PacketType)
+                .Where(p => p.Id == projectId)
+                .AsEnumerable()
+                .FirstOrDefault();
+            if (project is null)
+                return NotFound();
+            return project.ComputeTasks.ToList();
+        }
+
         // PUT: api/ComputeTasks/5
         // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
         [HttpPut("{id}")]
@@ -77,8 +93,9 @@ namespace VolunteerComputing.ManagementServer.Server.Controllers
         // POST: api/ComputeTasks
         // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
         [HttpPost]
-        public async Task<List<ComputeTask>> PostComputeTasks(List<ComputeTask> computeTasks)
+        public async Task<List<ComputeTask>> PostComputeTasks(List<ComputeTask> computeTasks, [FromQuery] int projectId)
         {
+            var project = await _context.Projects.FindAsync(projectId);
             foreach (var computeTask in computeTasks)
             {
                 string path;
@@ -105,6 +122,7 @@ namespace VolunteerComputing.ManagementServer.Server.Controllers
 
                 var packetTypes = computeTask.PacketTypes;
                 computeTask.PacketTypes = null;
+                computeTask.Project = project;
                 _context.ComputeTask.Add(computeTask);
                 UpdatePacketTypes(packetTypes, computeTask);
             }

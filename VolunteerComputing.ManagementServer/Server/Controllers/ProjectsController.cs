@@ -88,12 +88,26 @@ namespace VolunteerComputing.ManagementServer.Server.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteProject(int id)
         {
-            var project = await _context.Projects.FindAsync(id);
+            var project = _context.Projects
+                .AsSplitQuery()
+                .Include(p => p.PacketTypes)
+                    .ThenInclude(t => t.ComputeTasks)
+                .Include(p => p.ComputeTasks)
+                    .ThenInclude(s => s.DeviceStats)
+                .Include(p => p.Results)
+                .Where(x => x.Id == id)
+                .AsEnumerable()
+                .FirstOrDefault();
             if (project == null)
             {
                 return NotFound();
             }
+            _context.PacketTypeToComputeTasks.RemoveRange(project.PacketTypes.SelectMany(t => t.ComputeTasks));
+            _context.DeviceStats.RemoveRange(project.ComputeTasks.SelectMany(s => s.DeviceStats));
+            _context.Result.RemoveRange(project.Results);
 
+            _context.PacketTypes.RemoveRange(project.PacketTypes);
+            _context.ComputeTask.RemoveRange(project.ComputeTasks);
             _context.Projects.Remove(project);
             await _context.SaveChangesAsync();
 
