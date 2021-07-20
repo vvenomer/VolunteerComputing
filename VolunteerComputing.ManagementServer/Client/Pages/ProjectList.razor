@@ -6,12 +6,10 @@
 @foreach (var project in projects)
 {
     var href = $"project/{project.Id}";
-    <a href="@href">@project.Name</a>
+    <a href="@href">@project.Name</a><br>
 }
 
 @code {
-    //to do: enable deleting projects
-
     IList<Project> projects = new List<Project>();
     protected override async Task OnInitializedAsync()
     {
