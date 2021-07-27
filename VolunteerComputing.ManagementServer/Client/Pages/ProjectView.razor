@@ -1,5 +1,7 @@
 ﻿@page "/project/{Id:int}"
 @using VolunteerComputing.Shared.Models
+@using System.Threading
+@using Microsoft.AspNetCore.SignalR.Client
 @inject HttpClient Http
 @inject NavigationManager NavigationManager
 <h3>Project @project.Name</h3>
@@ -40,7 +42,15 @@ Minimum number of agreeing volunteer clients to consider result true: @project.M
         }
     </tbody>
 </table>
-
+@foreach (var (typeName, packetCount) in CountDictionary)
+{
+    var style = $"width: {packetCount * 100 / PacketsCount}%";
+    @typeName
+    <div class="progress">
+        <div class="progress-bar" role="progressbar" style="@style">@packetCount</div>
+    </div><br>
+}
+<br>
 <button class="btn btn-primary" @onclick="Delete">Delete</button>
 
 @code {
@@ -48,15 +58,57 @@ Minimum number of agreeing volunteer clients to consider result true: @project.M
     public int Id { get; set; }
 
     Project project = new Project { ComputeTasks = new List<ComputeTask>() };
+    Dictionary<string, int> CountDictionary = new Dictionary<string, int>();
+    int PacketsCount = 1;
+    HubConnection HubConnection;
+    Timer timer;
 
     protected override async Task OnInitializedAsync()
     {
-        var project = await Http.GetFromJsonAsync<Project>($"api/Projects/{Id}");
-        if (project is not null)
         {
+            var project = await Http.GetFromJsonAsync<Project>($"api/Projects/{Id}");
+
+            if (project is null)
+                return;
+
             project.ComputeTasks = await Http.GetFromJsonAsync<List<ComputeTask>>($"api/ComputeTasks/ByProject/{Id}");
+            project.PacketTypes = project.ComputeTasks
+                .SelectMany(c => c.PacketTypes.Select(t => t.PacketType))
+                .ToHashSet();
             this.project = project;
         }
+
+        foreach (var packetType in project.PacketTypes)
+        {
+            Console.WriteLine($"type: {packetType.Type}, project: ({packetType.Project.Id}, {packetType.Project.Name}, {packetType.Project.GetHashCode()}), id: {packetType.Id}, hash: {packetType.GetHashCode()}");
+            foreach (var packetType1 in project.PacketTypes)
+            {
+                if (packetType.Type == packetType1.Type && packetType != packetType1)
+                    Console.WriteLine($"same: {packetType == packetType1}, same2: {packetType.Equals(packetType1)}, type: {packetType1.Type}, project: ({packetType1.Project.Id}, {packetType1.Project.Name}, {packetType1.Project.GetHashCode()}), id: {packetType1.Id}, hash: {packetType1.GetHashCode()}");
+            }
+        }
+        CountDictionary = project.PacketTypes.ToDictionary(t => t.Type, _ => 0);
+        HubConnection = new HubConnectionBuilder()
+            .WithUrl(NavigationManager.ToAbsoluteUri("/tasks"))
+            .WithAutomaticReconnect()
+            .Build();
+        await HubConnection.StartAsync();
+        await HubConnection.InvokeAsync("JoinClients");
+
+        timer = new Timer(async _ =>
+        {
+            var sum = 0;
+            foreach (var packetType in this.project.PacketTypes)
+            {
+                var count = await HubConnection.InvokeAsync<int>("CountPacketsByType", packetType.Id);
+                CountDictionary[packetType.Type] = count;
+                sum += count;
+            }
+            if (sum == 0)
+                sum = 1;
+            PacketsCount = sum;
+            StateHasChanged();
+        }, null, 0, 1000);
     }
 
     async Task Delete()

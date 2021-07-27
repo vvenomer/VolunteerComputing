@@ -96,6 +96,11 @@ namespace VolunteerComputing.Client
             File.WriteAllText(userDataPath, JsonConvert.SerializeObject(userData));
         }
 
+        public static void Restart()
+        {
+            File.Delete(userDataPath);
+        }
+
         class UserData
         {
             public int Id { get; set; }

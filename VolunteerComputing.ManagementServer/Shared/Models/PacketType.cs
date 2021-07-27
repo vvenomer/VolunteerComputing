@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace VolunteerComputing.Shared.Models
 {
-    public class PacketType
+    public class PacketType : IEquatable<PacketType>
     {
         public int Id { get; set; }
         public string Type { get; set; } //np. state, number, steps
@@ -15,15 +15,19 @@ namespace VolunteerComputing.Shared.Models
 
         public override bool Equals(object obj)
         {
-            return obj is PacketType type &&
-                   Id == type.Id &&
+            return obj is PacketType type && Equals(type);
+        }
+
+        public bool Equals(PacketType type)
+        {
+            return Id == type.Id &&
                    Type == type.Type &&
-                   Project == type.Project;
+                   Project.Equals(type.Project);
         }
 
         public override int GetHashCode()
         {
-            return HashCode.Combine(Id, Type, Project);
+            return HashCode.Combine(Id, Type, Project.GetHashCode());
         }
     }
 }
