@@ -33,7 +33,7 @@ Minimum number of agreeing volunteer clients to consider result true: @project.M
 
                 <td>@(!string.IsNullOrEmpty(computeTask.LinuxGpuProgram))</td>
 
-                <td>@(string.IsNullOrEmpty(computeTask.ExeFilename) ? "No a zip" : computeTask.ExeFilename)</td>
+                <td>@(string.IsNullOrEmpty(computeTask.ExeFilename) ? "Not a zip" : computeTask.ExeFilename)</td>
 
                 <td>@string.Join(", ", inputs.Select(x => x.Type + (x.Aggregable ? " (aggregable)" : "")))</td>
 
@@ -48,9 +48,24 @@ Minimum number of agreeing volunteer clients to consider result true: @project.M
     @typeName
     <div class="progress">
         <div class="progress-bar" role="progressbar" style="@style">@packetCount</div>
-    </div><br>
+    </div>
+    <br>
 }
 <br>
+
+Results:
+<ul>
+
+    @foreach (var result in results)
+    {
+
+        var href = $"api/Results?fileId={result.FileId}&projectName={project.Name}";
+        <li>
+            <a href="@href">@result.CreatedAt</a>
+        </li>
+    }
+</ul>
+
 <button class="btn btn-primary" @onclick="Delete">Delete</button>
 
 @code {
@@ -58,7 +73,8 @@ Minimum number of agreeing volunteer clients to consider result true: @project.M
     public int Id { get; set; }
 
     Project project = new Project { ComputeTasks = new List<ComputeTask>() };
-    Dictionary<string, int> CountDictionary = new Dictionary<string, int>();
+    Dictionary<string, int> CountDictionary = new();
+    List<Result> results = new();
     int PacketsCount = 1;
     HubConnection HubConnection;
     Timer timer;
@@ -78,20 +94,25 @@ Minimum number of agreeing volunteer clients to consider result true: @project.M
             this.project = project;
         }
 
-        foreach (var packetType in project.PacketTypes)
-        {
-            Console.WriteLine($"type: {packetType.Type}, project: ({packetType.Project.Id}, {packetType.Project.Name}, {packetType.Project.GetHashCode()}), id: {packetType.Id}, hash: {packetType.GetHashCode()}");
-            foreach (var packetType1 in project.PacketTypes)
-            {
-                if (packetType.Type == packetType1.Type && packetType != packetType1)
-                    Console.WriteLine($"same: {packetType == packetType1}, same2: {packetType.Equals(packetType1)}, type: {packetType1.Type}, project: ({packetType1.Project.Id}, {packetType1.Project.Name}, {packetType1.Project.GetHashCode()}), id: {packetType1.Id}, hash: {packetType1.GetHashCode()}");
-            }
-        }
+        results = await Http.GetFromJsonAsync<List<Result>>($"api/Results/ByProject/{Id}");
+
         CountDictionary = project.PacketTypes.ToDictionary(t => t.Type, _ => 0);
         HubConnection = new HubConnectionBuilder()
             .WithUrl(NavigationManager.ToAbsoluteUri("/tasks"))
             .WithAutomaticReconnect()
             .Build();
+
+        HubConnection.On("NewResult", (Result result) =>
+        {
+            Console.WriteLine("New result");
+            if (project.Name == result.Project.Name)
+            {
+                results.Add(result);
+                Console.WriteLine("Added");
+            }
+            StateHasChanged();
+        });
+
         await HubConnection.StartAsync();
         await HubConnection.InvokeAsync("JoinClients");
 

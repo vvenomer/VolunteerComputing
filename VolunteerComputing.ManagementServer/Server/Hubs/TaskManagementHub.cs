@@ -67,9 +67,12 @@ namespace VolunteerComputing.ManagementServer.Server.Hubs
                     .Select(g => (g.project, result: JsonConvert.SerializeObject(g.data)))
                     .Select(async g =>
                     {
-                        var (project, result) = g;
-                        var fileId = await ResultsHelper.SaveResult(project.Name, result);
-                        dbContext.Result.Add(new Result { FileId = fileId, Project = project });
+                        var (project, data) = g;
+                        var fileId = await ResultsHelper.SaveResult(project.Name, data);
+                        var result = new Result { FileId = fileId, Project = project, CreatedAt = DateTime.Now };
+                        dbContext.Result.Add(result);
+
+                        await Clients.Group(clientId).NewResult(result);
                     });
 
                 await Task.WhenAll(tasks);

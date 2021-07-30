@@ -10,6 +10,9 @@ namespace VolunteerComputing.Shared.Models
     {
         public int Id { get; set; }
         public string FileId { get; set; }
+        public DateTime CreatedAt { get; set; }
+
+        public int ProjectId { get; set; }
         public Project Project { get; set; }
     }
 }
