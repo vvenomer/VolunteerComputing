@@ -1,8 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace VolunteerComputing.Shared.Models
 {
@@ -14,5 +11,17 @@ namespace VolunteerComputing.Shared.Models
         public ICollection<ComputeTask> ComputeTasks { get; set; }
         public ICollection<PacketType> PacketTypes { get; set; }
         public ICollection<Result> Results { get; set; }
+
+        public override bool Equals(object obj)
+        {
+            return obj is Project project &&
+                   Id == project.Id &&
+                   Name == project.Name;
+        }
+
+        public override int GetHashCode()
+        {
+            return HashCode.Combine(Id, Name);
+        }
     }
 }

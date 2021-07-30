@@ -2,8 +2,6 @@
 using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
 using System;
-using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using VolunteerComputing.ManagementServer.Server.Data;
@@ -15,10 +13,12 @@ namespace VolunteerComputing.ManagementServer.Server.Hubs
     public class TaskManagementHub : Hub<ITaskManagementHubMessages>
     {
         private readonly ApplicationDbContext dbContext;
-        static int connected = 0;
+        static int connectedServers = 0;
         static int finished = 0;
-        object connectedLocker = new();
-        object finishedLocker = new();
+        readonly object connectedServersLocker = new();
+        readonly object finishedLocker = new();
+        public const string taskServerId = "t";
+        public const string clientId = "c";
 
         public TaskManagementHub(ApplicationDbContext dbContext)
         {
@@ -27,11 +27,26 @@ namespace VolunteerComputing.ManagementServer.Server.Hubs
 
         public override Task OnConnectedAsync()
         {
-            lock (connectedLocker)
-            {
-                connected++;
-            }
             return base.OnConnectedAsync();
+        }
+
+        public async Task JoinTaskServers()
+        {
+            lock (connectedServersLocker)
+            {
+                connectedServers++;
+            }
+            await Groups.AddToGroupAsync(Context.ConnectionId, taskServerId);
+        }
+
+        public async Task JoinClients()
+        {
+            await Groups.AddToGroupAsync(Context.ConnectionId, clientId);
+        }
+
+        public async Task<int> CountPacketsByType(int packetTypeId)
+        {
+            return await dbContext.Packets.CountAsync(p => p.TypeId == packetTypeId);
         }
 
         public async Task ReportFinished()
@@ -39,9 +54,9 @@ namespace VolunteerComputing.ManagementServer.Server.Hubs
             lock (finishedLocker)
             {
                 finished++;
-                Console.WriteLine($"Task server reports finishing work ({finished} out of {connected} reported)");
+                Console.WriteLine($"Task server reports finishing work ({finished} out of {connectedServers} reported)");
             }
-            if (finished == connected)
+            if (finished == connectedServers)
             {
                 Console.WriteLine("Saving result");
                 var packets = dbContext.Packets.Include(x => x.Type).ThenInclude(p => p.Project).ToList();
@@ -52,9 +67,12 @@ namespace VolunteerComputing.ManagementServer.Server.Hubs
                     .Select(g => (g.project, result: JsonConvert.SerializeObject(g.data)))
                     .Select(async g =>
                     {
-                        var (project, result) = g;
-                        var fileId = await ResultsHelper.SaveResult(project.Name, result);
-                        dbContext.Result.Add(new Result { FileId = fileId, Project = project });
+                        var (project, data) = g;
+                        var fileId = await ResultsHelper.SaveResult(project.Name, data);
+                        var result = new Result { FileId = fileId, Project = project, CreatedAt = DateTime.Now };
+                        dbContext.Result.Add(result);
+
+                        await Clients.Group(clientId).NewResult(result);
                     });
 
                 await Task.WhenAll(tasks);

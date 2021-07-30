@@ -1,5 +1,7 @@
 ﻿@page "/project/{Id:int}"
 @using VolunteerComputing.Shared.Models
+@using System.Threading
+@using Microsoft.AspNetCore.SignalR.Client
 @inject HttpClient Http
 @inject NavigationManager NavigationManager
 <h3>Project @project.Name</h3>
@@ -31,7 +33,7 @@ Minimum number of agreeing volunteer clients to consider result true: @project.M
 
                 <td>@(!string.IsNullOrEmpty(computeTask.LinuxGpuProgram))</td>
 
-                <td>@(string.IsNullOrEmpty(computeTask.ExeFilename) ? "No a zip" : computeTask.ExeFilename)</td>
+                <td>@(string.IsNullOrEmpty(computeTask.ExeFilename) ? "Not a zip" : computeTask.ExeFilename)</td>
 
                 <td>@string.Join(", ", inputs.Select(x => x.Type + (x.Aggregable ? " (aggregable)" : "")))</td>
 
@@ -40,6 +42,29 @@ Minimum number of agreeing volunteer clients to consider result true: @project.M
         }
     </tbody>
 </table>
+@foreach (var (typeName, packetCount) in CountDictionary)
+{
+    var style = $"width: {packetCount * 100 / PacketsCount}%";
+    @typeName
+    <div class="progress">
+        <div class="progress-bar" role="progressbar" style="@style">@packetCount</div>
+    </div>
+    <br>
+}
+<br>
+
+Results:
+<ul>
+
+    @foreach (var result in results)
+    {
+
+        var href = $"api/Results?fileId={result.FileId}&projectName={project.Name}";
+        <li>
+            <a href="@href">@result.CreatedAt</a>
+        </li>
+    }
+</ul>
 
 <button class="btn btn-primary" @onclick="Delete">Delete</button>
 
@@ -48,15 +73,63 @@ Minimum number of agreeing volunteer clients to consider result true: @project.M
     public int Id { get; set; }
 
     Project project = new Project { ComputeTasks = new List<ComputeTask>() };
+    Dictionary<string, int> CountDictionary = new();
+    List<Result> results = new();
+    int PacketsCount = 1;
+    HubConnection HubConnection;
+    Timer timer;
 
     protected override async Task OnInitializedAsync()
     {
-        var project = await Http.GetFromJsonAsync<Project>($"api/Projects/{Id}");
-        if (project is not null)
         {
+            var project = await Http.GetFromJsonAsync<Project>($"api/Projects/{Id}");
+
+            if (project is null)
+                return;
+
             project.ComputeTasks = await Http.GetFromJsonAsync<List<ComputeTask>>($"api/ComputeTasks/ByProject/{Id}");
+            project.PacketTypes = project.ComputeTasks
+                .SelectMany(c => c.PacketTypes.Select(t => t.PacketType))
+                .ToHashSet();
             this.project = project;
         }
+
+        results = await Http.GetFromJsonAsync<List<Result>>($"api/Results/ByProject/{Id}");
+
+        CountDictionary = project.PacketTypes.ToDictionary(t => t.Type, _ => 0);
+        HubConnection = new HubConnectionBuilder()
+            .WithUrl(NavigationManager.ToAbsoluteUri("/tasks"))
+            .WithAutomaticReconnect()
+            .Build();
+
+        HubConnection.On("NewResult", (Result result) =>
+        {
+            Console.WriteLine("New result");
+            if (project.Name == result.Project.Name)
+            {
+                results.Add(result);
+                Console.WriteLine("Added");
+            }
+            StateHasChanged();
+        });
+
+        await HubConnection.StartAsync();
+        await HubConnection.InvokeAsync("JoinClients");
+
+        timer = new Timer(async _ =>
+        {
+            var sum = 0;
+            foreach (var packetType in this.project.PacketTypes)
+            {
+                var count = await HubConnection.InvokeAsync<int>("CountPacketsByType", packetType.Id);
+                CountDictionary[packetType.Type] = count;
+                sum += count;
+            }
+            if (sum == 0)
+                sum = 1;
+            PacketsCount = sum;
+            StateHasChanged();
+        }, null, 0, 1000);
     }
 
     async Task Delete()

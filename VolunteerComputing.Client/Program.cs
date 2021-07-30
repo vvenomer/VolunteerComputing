@@ -80,6 +80,12 @@ namespace VolunteerComputing.Client
             };
 
             var id = await conn.InvokeAsync<int>("SendDeviceData", data);
+            if(id == -1)
+            {
+                Console.WriteLine("Server doesn't know that device, please restart application to create new device");
+                Storage.Restart();
+                return;
+            }
             Storage.Id = id;
             while (true) await Task.Delay(500);
         }

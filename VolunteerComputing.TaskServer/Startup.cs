@@ -36,7 +36,8 @@ namespace VolunteerComputing.TaskServer
             services.AddSignalR(o => o.MaximumReceiveMessageSize = null)
                 .AddMessagePackProtocol();
             services.AddHostedService<TaskProcessorService>();
-            services.AddRazorPages();
+            services.AddRazorPages()
+                .AddNewtonsoftJson(x => x.SerializerSettings.ReferenceLoopHandling = Newtonsoft.Json.ReferenceLoopHandling.Ignore);
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.

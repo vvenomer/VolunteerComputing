@@ -7,13 +7,13 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using VolunteerComputing.ManagementServer.Server.Data;
 using VolunteerComputing.ManagementServer.Server.Models;
-using Microsoft.AspNetCore.Mvc.NewtonsoftJson;
 using VolunteerComputing.ManagementServer.Server.Hubs;
 using Microsoft.AspNetCore.Identity;
 using System.Linq;
 using System.Threading.Tasks;
 using System;
 using System.Security.Claims;
+using Newtonsoft.Json;
 
 namespace VolunteerComputing.ManagementServer.Server
 {
@@ -63,13 +63,14 @@ namespace VolunteerComputing.ManagementServer.Server
                 .AddIdentityServerJwt();
 
             services.AddSignalR()
+                .AddNewtonsoftJsonProtocol(o => o.PayloadSerializerSettings.ReferenceLoopHandling = ReferenceLoopHandling.Ignore)
                 .AddMessagePackProtocol();
 
             services.AddResponseCompression();
 
             services.AddControllersWithViews();
             services.AddRazorPages()
-                .AddNewtonsoftJson(x => x.SerializerSettings.ReferenceLoopHandling = Newtonsoft.Json.ReferenceLoopHandling.Ignore);
+                .AddNewtonsoftJson(x => x.SerializerSettings.ReferenceLoopHandling = ReferenceLoopHandling.Ignore);
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.

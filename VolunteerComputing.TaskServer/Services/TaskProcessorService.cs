@@ -43,12 +43,13 @@ namespace VolunteerComputing.TaskServer.Services
                 Console.WriteLine("Finished work");
                 await taskServerHub.Clients.All.InformFinished();
             });
+            hubConnection.StartAsync().Wait();
+            Id = hubConnection.ConnectionId;
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            await hubConnection.StartAsync(stoppingToken);
-            Id = hubConnection.ConnectionId;
+            await hubConnection.InvokeAsync("JoinTaskServers", cancellationToken: stoppingToken);
 
             while (!stoppingToken.IsCancellationRequested)
             {

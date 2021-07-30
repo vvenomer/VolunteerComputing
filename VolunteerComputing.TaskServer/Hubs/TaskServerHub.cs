@@ -105,6 +105,9 @@ namespace VolunteerComputing.TaskServer.Hubs
             if (device.Id != 0)
                 device = dbContext.Devices.Find(device.Id);
 
+            if (device == null)
+                return -1;
+
             device.ConnectionId = Context.ConnectionId;
             device.CpuWorksOnBundle = 0;
             device.GpuWorksOnBundle = 0;

@@ -16,7 +16,7 @@ namespace VolunteerComputing.ManagementServer.Server.Data.Migrations
 #pragma warning disable 612, 618
             modelBuilder
                 .HasAnnotation("Relational:MaxIdentifierLength", 128)
-                .HasAnnotation("ProductVersion", "5.0.5")
+                .HasAnnotation("ProductVersion", "5.0.8")
                 .HasAnnotation("SqlServer:ValueGenerationStrategy", SqlServerValueGenerationStrategy.IdentityColumn);
 
             modelBuilder.Entity("IdentityServer4.EntityFramework.Entities.DeviceFlowCodes", b =>
@@ -200,12 +200,10 @@ namespace VolunteerComputing.ManagementServer.Server.Data.Migrations
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserLogin<string>", b =>
                 {
                     b.Property<string>("LoginProvider")
-                        .HasMaxLength(128)
-                        .HasColumnType("nvarchar(128)");
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("ProviderKey")
-                        .HasMaxLength(128)
-                        .HasColumnType("nvarchar(128)");
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("ProviderDisplayName")
                         .HasColumnType("nvarchar(max)");
@@ -242,12 +240,10 @@ namespace VolunteerComputing.ManagementServer.Server.Data.Migrations
                         .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("LoginProvider")
-                        .HasMaxLength(128)
-                        .HasColumnType("nvarchar(128)");
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("Name")
-                        .HasMaxLength(128)
-                        .HasColumnType("nvarchar(128)");
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("Value")
                         .HasColumnType("nvarchar(max)");
@@ -581,10 +577,13 @@ namespace VolunteerComputing.ManagementServer.Server.Data.Migrations
                         .HasColumnType("int")
                         .HasAnnotation("SqlServer:ValueGenerationStrategy", SqlServerValueGenerationStrategy.IdentityColumn);
 
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("FileId")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<int?>("ProjectId")
+                    b.Property<int>("ProjectId")
                         .HasColumnType("int");
 
                     b.HasKey("Id");
@@ -657,7 +656,7 @@ namespace VolunteerComputing.ManagementServer.Server.Data.Migrations
             modelBuilder.Entity("VolunteerComputing.Shared.Models.ComputeTask", b =>
                 {
                     b.HasOne("VolunteerComputing.Shared.Models.Project", "Project")
-                        .WithMany()
+                        .WithMany("ComputeTasks")
                         .HasForeignKey("ProjectId");
 
                     b.Navigation("Project");
@@ -666,7 +665,7 @@ namespace VolunteerComputing.ManagementServer.Server.Data.Migrations
             modelBuilder.Entity("VolunteerComputing.Shared.Models.DeviceStat", b =>
                 {
                     b.HasOne("VolunteerComputing.Shared.Models.ComputeTask", "ComputeTask")
-                        .WithMany()
+                        .WithMany("DeviceStats")
                         .HasForeignKey("ComputeTaskId");
 
                     b.HasOne("VolunteerComputing.Shared.Models.DeviceData", "DeviceData")
@@ -684,7 +683,7 @@ namespace VolunteerComputing.ManagementServer.Server.Data.Migrations
                         .WithMany("Packets")
                         .HasForeignKey("BundleId");
 
-                    b.HasOne("VolunteerComputing.Shared.Models.BundleResult", null)
+                    b.HasOne("VolunteerComputing.Shared.Models.BundleResult", "BundleResult")
                         .WithMany("Packets")
                         .HasForeignKey("BundleResultId");
 
@@ -697,6 +696,8 @@ namespace VolunteerComputing.ManagementServer.Server.Data.Migrations
                         .HasForeignKey("TypeId");
 
                     b.Navigation("Bundle");
+
+                    b.Navigation("BundleResult");
 
                     b.Navigation("DeviceWorkedOnIt");
 
@@ -715,7 +716,7 @@ namespace VolunteerComputing.ManagementServer.Server.Data.Migrations
             modelBuilder.Entity("VolunteerComputing.Shared.Models.PacketType", b =>
                 {
                     b.HasOne("VolunteerComputing.Shared.Models.Project", "Project")
-                        .WithMany()
+                        .WithMany("PacketTypes")
                         .HasForeignKey("ProjectId");
 
                     b.Navigation("Project");
@@ -739,8 +740,10 @@ namespace VolunteerComputing.ManagementServer.Server.Data.Migrations
             modelBuilder.Entity("VolunteerComputing.Shared.Models.Result", b =>
                 {
                     b.HasOne("VolunteerComputing.Shared.Models.Project", "Project")
-                        .WithMany()
-                        .HasForeignKey("ProjectId");
+                        .WithMany("Results")
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("Project");
                 });
@@ -752,6 +755,8 @@ namespace VolunteerComputing.ManagementServer.Server.Data.Migrations
 
             modelBuilder.Entity("VolunteerComputing.Shared.Models.ComputeTask", b =>
                 {
+                    b.Navigation("DeviceStats");
+
                     b.Navigation("PacketTypes");
                 });
 
@@ -770,6 +775,15 @@ namespace VolunteerComputing.ManagementServer.Server.Data.Migrations
             modelBuilder.Entity("VolunteerComputing.Shared.Models.PacketType", b =>
                 {
                     b.Navigation("ComputeTasks");
+                });
+
+            modelBuilder.Entity("VolunteerComputing.Shared.Models.Project", b =>
+                {
+                    b.Navigation("ComputeTasks");
+
+                    b.Navigation("PacketTypes");
+
+                    b.Navigation("Results");
                 });
 #pragma warning restore 612, 618
         }

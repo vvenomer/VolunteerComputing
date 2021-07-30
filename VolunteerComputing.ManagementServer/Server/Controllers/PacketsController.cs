@@ -88,8 +88,8 @@ namespace VolunteerComputing.ManagementServer.Server.Controllers
             packet.Data = ShareAPI.SaveTextToShare(packet.Data);
             _context.Packets.Add(packet);
             await _context.SaveChangesAsync();
-
-            await hubContext.Clients.All.PacketAdded();
+            
+            await hubContext.Clients.Group(TaskManagementHub.taskServerId).PacketAdded();
 
             return CreatedAtAction("GetPacket", new { id = packet.Id }, packet);
         }
