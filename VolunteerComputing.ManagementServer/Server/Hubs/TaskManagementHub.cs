@@ -77,6 +77,10 @@ namespace VolunteerComputing.ManagementServer.Server.Hubs
 
                 await Task.WhenAll(tasks);
 
+                foreach (var packet in packets)
+                {
+                    ShareAPI.RemoveFromShare(packet.Data);
+                }
                 dbContext.Packets.RemoveRange(packets); //todo: delete from share
                 await dbContext.SaveChangesAsync();
                 Console.WriteLine("Saved");

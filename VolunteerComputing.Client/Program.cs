@@ -24,6 +24,7 @@ namespace VolunteerComputing.Client
         static bool isCuda = true;
         static bool isWindows;
         static TimeSpan initTestTime = TimeSpan.FromSeconds(5);
+        const int simulateErrorEvery = 100;
         static async Task Main(string[] args)
         {
             if (!LoadOperatingSystemInformation())
@@ -261,11 +262,10 @@ namespace VolunteerComputing.Client
                     energyData = await EnergyMeasurer.RunNvidiaSmi(Storage.GpuEnergyToolPath, calculate);
 
                 var time = stopwatch.Elapsed;
-                if (!File.Exists(outputFilePath))
+                if (!File.Exists(outputFilePath) || new Random().Next() % simulateErrorEvery == 0) //TEMP - should be removed in production
                 {
                     Console.WriteLine($"Something went wrong after {time} using {energyData.Watt:0.00} W energy on {device}");
-                    //to do - handle
-                    //send message, that failed
+                    await connection.SendAsync("CalculationsFailed", useCpu);
                     return;
                 }
                 
@@ -278,6 +278,7 @@ namespace VolunteerComputing.Client
             catch (Exception ex)
             {
                 Console.WriteLine(ex);
+                await connection.SendAsync("CalculationsFailed", useCpu);
                 throw;
             }
         }

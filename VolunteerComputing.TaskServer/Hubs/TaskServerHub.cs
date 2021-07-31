@@ -25,9 +25,11 @@ namespace VolunteerComputing.TaskServer.Hubs
         public override async Task OnDisconnectedAsync(Exception exception)
         {
             Console.WriteLine(exception);
-            var device = dbContext.Devices.FirstOrDefault(d => d.ConnectionId == Context.ConnectionId);
+            var device = GetDevice();
             if (device is not null)
             {
+                await HandleFailedCalculationAsync(device, true);
+                await HandleFailedCalculationAsync(device, false);
                 device.TaskServerId = null;
                 device.ConnectionId = null;
                 await dbContext.SaveChangesAsync();
@@ -38,15 +40,15 @@ namespace VolunteerComputing.TaskServer.Hubs
         public async Task SendResult(byte[] result, int programId, bool cpu, double time, double energy)
         {
             //update device data
-            var thisDevice = dbContext.Devices.Include(x => x.DeviceStats).ThenInclude(x => x.ComputeTask).FirstOrDefault(d => d.ConnectionId == Context.ConnectionId);
+            var device = GetDevice(d => d.Include(x => x.DeviceStats).ThenInclude(x => x.ComputeTask));
 
-            var bundle = dbContext.Bundles.Find(cpu ? thisDevice.CpuWorksOnBundle : thisDevice.GpuWorksOnBundle);
+            var bundle = dbContext.Bundles.Find(cpu ? device.CpuWorksOnBundle : device.GpuWorksOnBundle);
             bundle.UntilCheck--;
 
             if (cpu)
-                thisDevice.CpuWorksOnBundle = 0;
+                device.CpuWorksOnBundle = 0;
             else
-                thisDevice.GpuWorksOnBundle = 0;
+                device.GpuWorksOnBundle = 0;
             await dbContext.SaveChangesAsync();
 
             var computeTask = dbContext.ComputeTask
@@ -54,8 +56,8 @@ namespace VolunteerComputing.TaskServer.Hubs
                 .ThenInclude(x => x.PacketType)
                 .FirstOrDefault(t => t.Id == programId);
 
-            var stats = thisDevice.DeviceStats.FirstOrDefault(x => x.ComputeTask == computeTask && x.IsCpu == cpu)
-                ?? new DeviceStat(thisDevice, computeTask, cpu);
+            var stats = device.DeviceStats.FirstOrDefault(x => x.ComputeTask == computeTask && x.IsCpu == cpu)
+                ?? new DeviceStat(device, computeTask, cpu);
             stats.AddStat(time, energy);
 
             if (dbContext.Entry(stats).State == EntityState.Detached)
@@ -75,7 +77,7 @@ namespace VolunteerComputing.TaskServer.Hubs
                 .Zip(results)
                 .Select(x => x.Second
                     .Select(d => ShareAPI.SaveTextToShare(d))
-                    .Select(data => new Packet { Type = x.First, Data = data, DeviceWorkedOnIt = thisDevice, BundleResult = bundleResult }))
+                    .Select(data => new Packet { Type = x.First, Data = data, DeviceWorkedOnIt = device, BundleResult = bundleResult }))
                 .SelectMany(x => x);
             foreach (var packet in newPackets)
             {
@@ -121,5 +123,35 @@ namespace VolunteerComputing.TaskServer.Hubs
             return device.Id;
         }
 
+        public async Task CalculationsFailed(bool isCpu)
+        {
+            var device = GetDevice();
+            Console.WriteLine($"calculations failed on {device.Id} device with connection id: {device.ConnectionId}");
+            await HandleFailedCalculationAsync(device, isCpu);
+        }
+
+        private async Task HandleFailedCalculationAsync(DeviceData device, bool isCpu)
+        {
+            var bundleId = isCpu ? device.CpuWorksOnBundle : device.GpuWorksOnBundle;
+            if (bundleId == 0)
+                return;
+            var bundle = await dbContext.Bundles.FindAsync(bundleId);
+            bundle.TimesSent--;
+
+            if (isCpu)
+                device.CpuWorksOnBundle = 0;
+            else
+                device.GpuWorksOnBundle = 0;
+            await dbContext.SaveChangesAsync();
+        }
+
+        private DeviceData GetDevice(Func<IQueryable<DeviceData>, IQueryable<DeviceData>> includes = null)
+        {
+            if (includes != null)
+                return includes(dbContext.Devices).FirstOrDefault(d => d.ConnectionId == Context.ConnectionId);
+
+            return dbContext.Devices.FirstOrDefault(d => d.ConnectionId == Context.ConnectionId);
+
+        }
     }
 }
