@@ -19,7 +19,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\CollatzExample\Collatz.Common\Collatz.Shared.csproj" />
     <ProjectReference Include="..\Client\VolunteerComputing.ManagementServer.Client.csproj" />
     <ProjectReference Include="..\Shared\VolunteerComputing.Shared.csproj" />
   </ItemGroup>
