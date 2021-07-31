@@ -43,7 +43,17 @@ namespace VolunteerComputing.TaskServer.Services
                 Console.WriteLine("Finished work");
                 await taskServerHub.Clients.All.InformFinished();
             });
-            hubConnection.StartAsync().Wait();
+            do
+            {
+                try
+                {
+                    hubConnection.StartAsync().Wait();
+                    break;
+                }
+                catch
+                {
+                }
+            } while (true);
             Id = hubConnection.ConnectionId;
         }
 
@@ -74,6 +84,7 @@ namespace VolunteerComputing.TaskServer.Services
                             .Select(p => p.Aggregated ? p.Data : ShareAPI.GetTextFromShare(p.Data))
                             .ToList();
 
+                        //device shouldn't work on same packet twice
                         var devicesForBundle = devices
                             .Except(bundle.BundleResults
                                 .SelectMany(r => r.Packets)
@@ -152,7 +163,6 @@ namespace VolunteerComputing.TaskServer.Services
                     .Include(x => x.BundleResults).ThenInclude(x => x.Packets).ThenInclude(x => x.DeviceWorkedOnIt)
                     .Where(x => x.TimesSent < x.ComputeTask.Project.MinAgreeingClients)
                     .ToList();
-
                 foreach (var bundle in existingBundles)
                 {
                     if (bundle.TimesSent != 0)
@@ -163,9 +173,7 @@ namespace VolunteerComputing.TaskServer.Services
                         newPackets.Remove(packet);
                     }
                 }
-
                 var newBundles = CreateBundles(newPackets, tasks, devices).ToList();
-
                 foreach (var bundle in newBundles)
                 {
                     context.Bundles.Add(bundle);
@@ -232,9 +240,10 @@ namespace VolunteerComputing.TaskServer.Services
                 }
                 var toKeep = mostAgreedResult.FirstOrDefault();
                 var toRemove = result
-                    .Where(x => x.Id != toKeep.Id);
+                    .Where(x => x.Id != toKeep.Id)
+                    .SelectMany(x => x.Packets);
 
-                context.Packets.RemoveRange(toRemove.SelectMany(x => x.Packets)); //todo: delete from share
+                RemovePackets(context, bundle.Packets);
                 foreach (var packet in toKeep.Packets)
                 {
                     packet.BundleId = null;
@@ -245,13 +254,24 @@ namespace VolunteerComputing.TaskServer.Services
                 }
                 context.BundleResults.RemoveRange(result);
 
-                context.Packets.RemoveRange(bundle.Packets); //todo: delete from share
+                RemovePackets(context, bundle.Packets);
                 context.Bundles.Remove(bundle);
 
                 packets.AddRange(toKeep.Packets);
             }
             await context.SaveChangesAsync();
             return packets;
+        }
+
+        static void RemovePackets(VolunteerComputingContext context, IEnumerable<Packet> packets, bool save = false)
+        {
+            foreach (var packet in packets)
+            {
+                ShareAPI.RemoveFromShare(packet.Data);
+            }
+            context.Packets.RemoveRange(packets);
+            if (save)
+                context.SaveChanges();
         }
 
         static async Task WaitForWork(CancellationToken stoppingToken)
@@ -358,6 +378,7 @@ namespace VolunteerComputing.TaskServer.Services
 
         static IEnumerable<PacketBundle> CreateBundles(List<Packet> packets, IEnumerable<ComputeTask> computeTasks, IEnumerable<DeviceData> devices)
         {
+            var tempPackets = packets.ToList();
             foreach (var computeTask in computeTasks)
             {
                 if (!devices.Any(d => d.CanCalculate(computeTask)))
@@ -376,19 +397,19 @@ namespace VolunteerComputing.TaskServer.Services
                     {
                         if (packetType.Aggregable)
                         {
-                            var packetsToSelect = packets.Where(t => t.Type == packetType).ToHashSet();
+                            var packetsToSelect = tempPackets.Where(t => t.Type == packetType).ToHashSet();
                             if (packetsToSelect.Count < 2)
                                 break;
                             selectedPackets.AddRange(packetsToSelect);
-                            packets.RemoveAll((Packet x) => packetsToSelect.Contains(x));
+                            tempPackets.RemoveAll(x => packetsToSelect.Contains(x));
                         }
                         else
                         {
-                            var packetToSelect = packets.FirstOrDefault(t => t.Type == packetType);
+                            var packetToSelect = tempPackets.FirstOrDefault(t => t.Type == packetType);
                             if (packetToSelect == null)
                                 break;
                             selectedPackets.Add(packetToSelect);
-                            packets.Remove(packetToSelect);
+                            tempPackets.Remove(packetToSelect);
                         }
                         addedCount++;
                     }
@@ -396,7 +417,6 @@ namespace VolunteerComputing.TaskServer.Services
                         yield return new PacketBundle { ComputeTask = computeTask, Packets = selectedPackets, UntilCheck = computeTask.Project.MinAgreeingClients, BundleResults = new List<BundleResult>() };
                     else
                         break;
-                    continue;
                 }
             }
         }

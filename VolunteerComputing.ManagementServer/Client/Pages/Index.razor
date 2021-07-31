@@ -5,26 +5,29 @@
 @attribute [Authorize(Roles = "Editor,Admin")]
 @inject HttpClient Http
 <EditForm Model="@Project">
+    <h3>General</h3>
     Project Name
-    <input @bind="Project.Name" /><br>
+    <input class="form-control" @bind="Project.Name" /><br>
     How many volunteers should agree to consider result as true?
-    <input type="number" @bind="Project.MinAgreeingClients" /><br>
+    <input class="form-control" type="number" @bind="Project.MinAgreeingClients" /><br>
 
+    <h3>Packet Types</h3>
     @foreach (var packetType in packetTypes)
     {
         var localPacketType = packetType;
-        <InputText @bind-Value="packetType.Type" />
+        <InputText class="form-control" @bind-Value="packetType.Type" />
         <text>Should aggregate</text>
-        <InputCheckbox @bind-Value="packetType.Aggregable" />
+        <InputCheckbox class="form-check-input" @bind-Value="packetType.Aggregable" />
         <button class="btn btn-primary" @onchange="() => RemovePacketType(localPacketType)">Remove</button><br>
     }
-    <button class="btn btn-primary" @onclick="AddPacketType">Add packet type</button><br>
+    <button class="btn btn-primary" @onclick="AddPacketType">Add packet type</button><br><br>
 
+    <h3>Compute Tasks</h3>
     @for (int i = 0; i < computeTasks.Count; i++)
     {
         var locali = i;
         var computeTask = computeTasks[locali];
-
+        <h4>@(locali+1).</h4>
         @foreach (var inputType in computeTask.PacketTypes.Where(p => p.IsInput).Select(p => p.PacketType))
         {
             var localInputType = inputType;
@@ -32,7 +35,7 @@
             <button class="btn btn-primary" @onclick="() => RemoveInput(localInputType, locali)">Remove</button>
         }
 
-        <select @bind="newInputTypes[locali]">
+        <select class="form-control" @bind="newInputTypes[locali]">
             <option disabled selected> --- </option>
             @foreach (var packetType in packetTypes)
             {
@@ -46,7 +49,7 @@
             <text>Output id: </text> @outputType.Type
             <button class="btn btn-primary" @onclick="() => RemoveOutput(localOutputType, locali)">Remove</button>
         }
-        <select @bind="newOutputTypes[locali]">
+        <select class="form-control" @bind="newOutputTypes[locali]">
             <option disabled selected> --- </option>
             @foreach (var packetType in packetTypes)
             {
@@ -55,11 +58,11 @@
         </select>
         <button class="btn btn-primary" @onclick="() => AddOutput(locali)">Add output</button><br>
 
-        <text>Windows Cpu:</text><InputFile OnChange="@((e) => LoadFile(e, locali, true, true))" /><br>
-        <text>Windows Gpu:</text><InputFile OnChange="@((e) => LoadFile(e, locali, true, false))" /><br>
-        <text>Linux Cpu:</text><InputFile OnChange="@((e) => LoadFile(e, locali, false, true))" /><br>
-        <text>Linux Gpu:</text><InputFile OnChange="@((e) => LoadFile(e, locali, false, false))" /><br>
-        <text>Is .zip file?</text><input type="checkbox" @bind="areZipFiles[locali]" />
+        <text>Windows Cpu:</text><InputFile class="custom-file-input" OnChange="@((e) => LoadFile(e, locali, true, true))" /><br>
+        <text>Windows Gpu:</text><InputFile class="custom-file-input" OnChange="@((e) => LoadFile(e, locali, true, false))" /><br>
+        <text>Linux Cpu:</text><InputFile class="custom-file-input" OnChange="@((e) => LoadFile(e, locali, false, true))" /><br>
+        <text>Linux Gpu:</text><InputFile class="custom-file-input" OnChange="@((e) => LoadFile(e, locali, false, false))" /><br>
+        <text>Is .zip file?</text><input class="form-check-input" type="checkbox" @bind="areZipFiles[locali]" />
         @if (areZipFiles[locali])
         {
             <text>Exe name:</text><InputText @bind-Value="computeTask.ExeFilename" />
@@ -69,15 +72,15 @@
     <button class="btn btn-primary" @onclick="AddComputeTask">Add compute task</button><br>
     <button class="btn btn-primary" @onclick="Save">Save</button><br>
 
-    Create new packet
-    <select @bind="packetType">
+    <h3>Create new packet</h3>
+    <select class="form-control" @bind="packetType">
         <option disabled selected value=""> --- </option>
         @foreach (var packetType in packetTypes)
         {
             <option value="@packetType.Type">@packetType.Type</option>
         }
     </select><br>
-    <InputTextArea width="500" @bind-Value="packetData" /><br>
+    <InputTextArea class="form-control" rows="4" @bind-Value="packetData" /><br>
     <button class="btn btn-primary" @onclick="SendPacket">Create new packet</button>
 </EditForm>
 @code

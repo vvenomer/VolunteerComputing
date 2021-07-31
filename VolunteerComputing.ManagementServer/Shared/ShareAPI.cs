@@ -32,5 +32,10 @@ namespace VolunteerComputing.Shared
             File.WriteAllText(path, text);
             return path;
         }
+
+        public static void RemoveFromShare(string path)
+        {
+            File.Delete(path);
+        }
     }
 }
