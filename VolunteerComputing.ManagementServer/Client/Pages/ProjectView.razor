@@ -104,11 +104,9 @@ Results:
 
         HubConnection.On("NewResult", (Result result) =>
         {
-            Console.WriteLine("New result");
             if (project.Name == result.Project.Name)
             {
                 results.Add(result);
-                Console.WriteLine("Added");
             }
             StateHasChanged();
         });
