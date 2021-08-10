@@ -6,9 +6,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="VV.Cuda" Version="1.0.0" />
+    <PackageReference Include="ILGPU" Version="0.10.1" />
   </ItemGroup>
-
+  
   <ItemGroup>
     <ProjectReference Include="..\..\VolunteerComputing.ImplementationHelpers\VolunteerComputing.ImplementationHelpers.csproj" />
     <ProjectReference Include="..\Collatz.Common\Collatz.Shared.csproj" />

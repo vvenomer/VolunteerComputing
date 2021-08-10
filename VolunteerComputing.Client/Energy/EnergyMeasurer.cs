@@ -18,12 +18,12 @@ namespace VolunteerComputing.Client.Energy
             public string AwaiterFile { get; set; }
         }
 
-        public static async Task<(PowerLogEnergyData, NvidiaSmiEnergyData)> RunInitMeasurement(string nvidiaSmiPath, string powerLogPath, TimeSpan time)
+        public static async Task<(EnergyData, NvidiaSmiEnergyData)> RunInitMeasurement(string gpuToolPath, string cpuToolPath, bool isWindows, TimeSpan time)
         {
-            var energyDataAwaitable = RunPowerLog(powerLogPath, time);
-            var gpuEnergyDataAwaitable = RunNvidiaSmi(nvidiaSmiPath, time);
+            var energyDataAwaitable = isWindows ? await RunPowerLog(cpuToolPath, time) : await RunPerf(cpuToolPath, time);
+            var gpuEnergyDataAwaitable = RunNvidiaSmi(gpuToolPath, time);
 
-            return (await energyDataAwaitable, await gpuEnergyDataAwaitable);
+            return (energyDataAwaitable, await gpuEnergyDataAwaitable);
         }
 
         public static async Task<NvidiaSmiEnergyData> RunNvidiaSmi(string path, Func<Task> action)
@@ -39,8 +39,26 @@ namespace VolunteerComputing.Client.Energy
 
         public static async Task<NvidiaSmiEnergyData> RunNvidiaSmi(string path, TimeSpan time)
         {
-            var output = await ProcessHelper.RunProcessAndKill(NvidiaSmiStartInfo(path), time);
+            var output = await NvidiaSmiStartInfo(path).RunProcessAndKill(time);
             return ToNvidiaSmiEnergyData(output);
+        }
+
+        public static async Task<EnergyData> RunPerf(string path, Func<Task> action)
+        {
+            var awaiterFile = Path.GetRandomFileName();
+            var process = PerfStartInfo(path, $"VolunteerComputing.Awaiter {awaiterFile}").Start();
+
+            await action();
+            File.Create(awaiterFile).Close();
+            var output = await process.Await().GetResultAsync();
+            File.Delete(awaiterFile);
+            return new PerfEnergyData(output);
+        }
+
+        public static async Task<EnergyData> RunPerf(string path, TimeSpan time)
+        {
+            var output = await PerfStartInfo(path, $"sleep {time.TotalSeconds}").RunProcessReadError();
+            return new PerfEnergyData(output);        
         }
 
         public static async Task<PowerLogEnergyData> RunPowerLog(string path, Func<Task> action)
@@ -64,11 +82,12 @@ namespace VolunteerComputing.Client.Energy
         public static async Task<PowerLogEnergyData> RunPowerLog(string path, TimeSpan time)
         {
             var resultFile = Path.GetRandomFileName();
-            var output = await ProcessHelper.RunProcess(new ProcessStartInfo
+            var output = await (new ProcessStartInfo
             {
                 FileName = path,
                 Arguments = $"-duration {time.TotalSeconds} -file {resultFile}",
-            });
+            })
+                .RunProcess();
             return ToPowerLogEnergyData(output, resultFile);
         }
 
@@ -77,6 +96,12 @@ namespace VolunteerComputing.Client.Energy
             FileName = path,
             Arguments = "-i 0 --query-gpu=\"utilization.gpu,utilization.memory,power.draw,power.limit\" --format=\"csv,noheader,nounits\" -lms 500"
         };
+
+        static ProcessStartInfo PerfStartInfo(string path, string command) => new ProcessStartInfo
+        {
+            FileName = path,
+            Arguments = $"stat -e power/energy-cores/,power/energy-pkg/,power/energy-ram/ -a {command}"
+        }; //sudo turbostat -show CorWatt,PkgWatt,RAMWatt --quiet --enable CorWatt,PkgWatt,RAMWatt -S
 
         static PowerLogEnergyData ToPowerLogEnergyData(string output, string resultFile)
         {

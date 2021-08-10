@@ -35,12 +35,17 @@ namespace VolunteerComputing.Client
             Console.WriteLine($"Starting on {(isWindows ? "Windows" : "Linux")} OS" +
                 $"{(isIntel ? " with Intel CPU" : "")}{(isCuda ? " with Nvidia GPU" : "")}");
 
-            if (Storage.GpuEnergyToolPath == null)
+            if (isCuda && Storage.GpuEnergyToolPath == null)
                 Storage.GpuEnergyToolPath = FindNvidiaSmiPath(isWindows);
-            if (Storage.CpuEnergyToolPath == null)
-                Storage.CpuEnergyToolPath = FindPowerLogPath();
+            if (isIntel && Storage.CpuEnergyToolPath == null)
+            {
+                if(isWindows)
+                    Storage.CpuEnergyToolPath = FindPowerLogPath();
+                else
+                    Storage.CpuEnergyToolPath = FindPerfPath();
+            }
 
-            if (Storage.CpuEnergyToolPath == null || Storage.GpuEnergyToolPath == null)
+            if ((isIntel && Storage.CpuEnergyToolPath == null) || (isCuda && Storage.GpuEnergyToolPath == null))
                 return; //todo: check only if aviable
 
             double cpuEnergy = 0, gpuEnergy = 0;
@@ -51,6 +56,7 @@ namespace VolunteerComputing.Client
                 var energyDataAwaitable = EnergyMeasurer.RunInitMeasurement(
                     Storage.GpuEnergyToolPath,
                     Storage.CpuEnergyToolPath,
+                    isWindows,
                     initTestTime);
 
                 var (cpuEnergyData, gpuEnergyData) = await energyDataAwaitable;
@@ -93,16 +99,17 @@ namespace VolunteerComputing.Client
 
         static string FindNvidiaSmiPath(bool isWindows)
         {
+            var file = "nvidia-smi";
             if (isWindows)
             {
-                var path = @"C:\Program Files\NVIDIA Corporation\NVSMI\nvidia-smi.exe";
+                file += ".exe";
+                var path = @$"C:\Program Files\NVIDIA Corporation\NVSMI\{file}";
 
                 if (File.Exists(path))
                     return path;
 
                 var alternativePath = @"C:\Windows\System32\DriverStore\FileRepository";
                 var driverStartsWith = @"nvdm";
-                var file = "nvidia-smi.exe";
 
                 foreach (var driver in Directory.GetDirectories(alternativePath).Where(x => x.StartsWith(driverStartsWith)))
                 {
@@ -110,10 +117,13 @@ namespace VolunteerComputing.Client
                     if (File.Exists(pathInDriver))
                         return pathInDriver;
                 }
-                return AskForPath(file, "drivers for Nvidia graphic card");
             }
             else
-                return "nvidia-smi";
+            {
+                if(CheckBin(file))
+                    return file;
+            }
+            return AskForPath(file, "drivers for Nvidia graphic card");
         }
 
         static string FindPowerLogPath() //windows only
@@ -125,6 +135,19 @@ namespace VolunteerComputing.Client
                 return path;
             return AskForPath(file, "Power Gadget installed");
             //return @"D:\Intel\Power Gadget 3.6\PowerLog3.0.exe";
+        }
+
+        static string FindPerfPath() //linux only
+        {
+            var file = "perf";
+            if(CheckBin(file))
+                return file;
+            return AskForPath(file, "perf tool installed");
+        }
+
+        static bool CheckBin(string tool)
+        {
+            return File.Exists($"/usr/bin/{tool}") || File.Exists($"/bin/{tool}");
         }
 
         private static string AskForPath(string file, string requirement)
