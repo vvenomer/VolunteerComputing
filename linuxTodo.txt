@@ -1,0 +1,3 @@
+install dotnet: https://docs.microsoft.com/en-us/dotnet/core/install/linux
+make current user able to use "perf stat" without sudo or run application with sudo
+sudo chmod 444 /sys/class/powercap/intel-rapl/intel-rapl:0/constraint_0_max_power_uw

@@ -11,7 +11,7 @@ namespace Collatz.Calculator
     {
         const int packetSize = 256 * 256;
         const int maxSteps = 10_000_000;
-        static async Task Main(string[] args)
+        static void Main(string[] args)
         {
             var inputParser = new InputParser<Numbers>(args);
 
@@ -21,65 +21,13 @@ namespace Collatz.Calculator
             var input = inputParser.FirstInput;
             List<int> results = null;
 
-            /*GpuCalculator gpuCalculator = null;
-            if (!isCpu)
-                gpuCalculator = new GpuCalculator(packetSize, maxSteps);
-
-            if (inputParser.IsIntel && inputParser.IsCuda)
-            {
-                results = new Dictionary<int, int>();
-                Task<Dictionary<int, int>> cpuTask = null;
-                for (int i = 0; i < input.Count; i += packetSize)
-                {
-                    var count = input.Count - i;
-                    count = count > packetSize ? packetSize : count;
-
-                    var canStartOnGpu = !gpuCalculator.IsWorking;
-                    var canStartOnCpu = cpuTask?.IsCompleted ?? true;
-                    if (!(canStartOnCpu || canStartOnGpu))
-                    {
-                        var id = Task.WaitAny(new[] { cpuTask, gpuCalculator.WaitUntilFree() });
-                        if (id == 0)
-                            canStartOnCpu = true;
-                        else
-                            canStartOnGpu = true;
-                    }
-                    var start = i + input.Start;
-                    if (canStartOnGpu)
-                    {
-                        Console.WriteLine($"Using GPU start: {start} count: {count}");
-                        gpuCalculator.Proces(start, count);
-                    }
-                    else
-                    {
-                        Console.WriteLine($"Using CPU start: {start} count: {count}");
-                        if (cpuTask is not null)
-                        {
-                            results = results
-                                .Union(cpuTask.Result)
-                                .ToDictionary(x => x.Key, x => x.Value);
-                        }
-                        cpuTask = CpuProcessor(start, count);
-                    }
-                }
-                if (cpuTask is not null)
-                {
-                    results = results
-                        .Union(cpuTask.Result)
-                        .ToDictionary(x => x.Key, x => x.Value);
-                }
-                await gpuCalculator.End();
-                results = results
-                    .Union(gpuCalculator.Results.ToDictionary(x => x.Item1, x => x.Item2))
-                    .ToDictionary(x => x.Key, x => x.Value);
-            }*/
             if (isCpu)
             {
                 results = CpuProcessor(input.Start, input.Count);
             }
             else
             {
-                results = (await GpuCalculator.CalculateOnce(input.Start, input.Count, packetSize, maxSteps));
+                results = GpuCalculator.CalculateOnce(input.Start, input.Count, packetSize, maxSteps);
             }
 
             if (results.Count != input.Count)

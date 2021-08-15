@@ -33,7 +33,7 @@ namespace VolunteerComputing.TaskServer.Services
             this.scopeFactory = scopeFactory;
 
             hubConnection = new HubConnectionBuilder()
-                .WithUrl("https://localhost:5001/tasks")
+                .WithUrl("https://localhost:5101/tasks")
                 .AddMessagePackProtocol()
                 .WithAutomaticReconnect()
                 .Build();
@@ -43,22 +43,27 @@ namespace VolunteerComputing.TaskServer.Services
                 Console.WriteLine("Finished work");
                 await taskServerHub.Clients.All.InformFinished();
             });
-            do
-            {
-                try
-                {
-                    hubConnection.StartAsync().Wait();
-                    break;
-                }
-                catch
-                {
-                }
-            } while (true);
-            Id = hubConnection.ConnectionId;
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
+            do
+            {
+                try
+                {
+                    await hubConnection.StartAsync();
+                    break;
+                }
+                catch(Exception ex)
+                {
+                    Console.WriteLine(ex);
+                    await Task.Delay(1000);
+                }
+                if(stoppingToken.IsCancellationRequested)
+                    return;
+            } while (true);
+            Console.WriteLine("Connected");
+            Id = hubConnection.ConnectionId;
             await hubConnection.InvokeAsync("JoinTaskServers", cancellationToken: stoppingToken);
 
             while (!stoppingToken.IsCancellationRequested)

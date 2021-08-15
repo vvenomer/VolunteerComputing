@@ -35,12 +35,17 @@ namespace VolunteerComputing.Client
             Console.WriteLine($"Starting on {(isWindows ? "Windows" : "Linux")} OS" +
                 $"{(isIntel ? " with Intel CPU" : "")}{(isCuda ? " with Nvidia GPU" : "")}");
 
-            if (Storage.GpuEnergyToolPath == null)
+            if (isCuda && Storage.GpuEnergyToolPath == null)
                 Storage.GpuEnergyToolPath = FindNvidiaSmiPath(isWindows);
-            if (Storage.CpuEnergyToolPath == null)
-                Storage.CpuEnergyToolPath = FindPowerLogPath();
+            if (isIntel && Storage.CpuEnergyToolPath == null)
+            {
+                if(isWindows)
+                    Storage.CpuEnergyToolPath = FindPowerLogPath();
+                else
+                    Storage.CpuEnergyToolPath = FindPerfPath();
+            }
 
-            if (Storage.CpuEnergyToolPath == null || Storage.GpuEnergyToolPath == null)
+            if ((isIntel && Storage.CpuEnergyToolPath == null) || (isCuda && Storage.GpuEnergyToolPath == null))
                 return; //todo: check only if aviable
 
             double cpuEnergy = 0, gpuEnergy = 0;
@@ -51,16 +56,17 @@ namespace VolunteerComputing.Client
                 var energyDataAwaitable = EnergyMeasurer.RunInitMeasurement(
                     Storage.GpuEnergyToolPath,
                     Storage.CpuEnergyToolPath,
+                    isWindows,
                     initTestTime);
 
                 var (cpuEnergyData, gpuEnergyData) = await energyDataAwaitable;
                 (cpuEnergy, gpuEnergy) = (cpuEnergyData.Watt, gpuEnergyData.Watt);
                 Console.WriteLine($"Cpu uses {cpuEnergy:0.00}/{cpuEnergyData.PowerLimit} W, " +
                     $"while Gpu uses {gpuEnergy:0.00}/{gpuEnergyData.PowerLimit} W");
-                Storage.HasSentInitMeasurements = true;
             }
 
             var conn = await CreateHubConnection();
+            Console.WriteLine("Connected to server");
 
             conn.On("SendTaskAsync", (int programId, byte[] data, bool useCpu) =>
             {
@@ -81,6 +87,8 @@ namespace VolunteerComputing.Client
             };
 
             var id = await conn.InvokeAsync<int>("SendDeviceData", data);
+            if(cpuEnergy != 0 || gpuEnergy != 0)
+                Storage.HasSentInitMeasurements = true;
             if(id == -1)
             {
                 Console.WriteLine("Server doesn't know that device, please restart application to create new device");
@@ -93,16 +101,17 @@ namespace VolunteerComputing.Client
 
         static string FindNvidiaSmiPath(bool isWindows)
         {
+            var file = "nvidia-smi";
             if (isWindows)
             {
-                var path = @"C:\Program Files\NVIDIA Corporation\NVSMI\nvidia-smi.exe";
+                file += ".exe";
+                var path = @$"C:\Program Files\NVIDIA Corporation\NVSMI\{file}";
 
                 if (File.Exists(path))
                     return path;
 
                 var alternativePath = @"C:\Windows\System32\DriverStore\FileRepository";
                 var driverStartsWith = @"nvdm";
-                var file = "nvidia-smi.exe";
 
                 foreach (var driver in Directory.GetDirectories(alternativePath).Where(x => x.StartsWith(driverStartsWith)))
                 {
@@ -110,10 +119,13 @@ namespace VolunteerComputing.Client
                     if (File.Exists(pathInDriver))
                         return pathInDriver;
                 }
-                return AskForPath(file, "drivers for Nvidia graphic card");
             }
             else
-                return "nvidia-smi";
+            {
+                if(CheckBin(file))
+                    return file;
+            }
+            return AskForPath(file, "drivers for Nvidia graphic card");
         }
 
         static string FindPowerLogPath() //windows only
@@ -125,6 +137,19 @@ namespace VolunteerComputing.Client
                 return path;
             return AskForPath(file, "Power Gadget installed");
             //return @"D:\Intel\Power Gadget 3.6\PowerLog3.0.exe";
+        }
+
+        static string FindPerfPath() //linux only
+        {
+            var file = "perf";
+            if(CheckBin(file))
+                return file;
+            return AskForPath(file, "perf tool installed");
+        }
+
+        static bool CheckBin(string tool)
+        {
+            return File.Exists($"/usr/bin/{tool}") || File.Exists($"/bin/{tool}");
         }
 
         private static string AskForPath(string file, string requirement)
@@ -151,7 +176,7 @@ namespace VolunteerComputing.Client
         static async Task<HubConnection> CreateHubConnection()
         {
             var conn = new HubConnectionBuilder()
-                .WithUrl("https://localhost:8080/tasks")
+                .WithUrl("https://localhost:8181/tasks")
                 .AddMessagePackProtocol()
                 .WithAutomaticReconnect()
                 .Build();
@@ -257,7 +282,12 @@ namespace VolunteerComputing.Client
 
                 EnergyData energyData;
                 if (useCpu)
-                    energyData = await EnergyMeasurer.RunPowerLog(Storage.CpuEnergyToolPath, calculate);
+                {
+                    if(isWindows)
+                        energyData = await EnergyMeasurer.RunPowerLog(Storage.CpuEnergyToolPath, calculate);
+                    else
+                        energyData = await EnergyMeasurer.RunPerf(Storage.CpuEnergyToolPath, calculate);
+                }
                 else
                     energyData = await EnergyMeasurer.RunNvidiaSmi(Storage.GpuEnergyToolPath, calculate);
 
@@ -301,7 +331,17 @@ namespace VolunteerComputing.Client
                 }
                 ZipFile.ExtractToDirectory(zipFile, dir);
                 File.Delete(zipFile);
-                File.Move(Path.Combine(dir, programData.ExeName), file);
+                var exePath = Path.Combine(dir, programData.ExeName);
+                if(!File.Exists(exePath))
+                    exePath += ".exe";
+                if(!File.Exists(exePath))
+                    exePath = Path.Combine(dir, Path.GetFileNameWithoutExtension(programData.ExeName));
+                
+                File.Move(exePath, file);
+            }
+            if(!isWindows)
+            {
+                await Process.Start("/bin/bash", $"-c \"chmod 775 {file}\"").Await();
             }
         }
     }

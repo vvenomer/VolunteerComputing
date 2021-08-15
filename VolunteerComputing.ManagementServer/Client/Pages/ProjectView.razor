@@ -66,7 +66,9 @@ Results:
     }
 </ul>
 
-<button class="btn btn-primary" @onclick="Delete">Delete</button>
+<button class="btn btn-primary" @onclick="Delete">Delete Project</button>
+<button class="btn btn-primary" @onclick="DeletePackets">Delete Packets</button>
+@deletePacketsStatus
 
 @code {
     [Parameter]
@@ -76,6 +78,7 @@ Results:
     Dictionary<string, int> CountDictionary = new();
     List<Result> results = new();
     int PacketsCount = 1;
+    string deletePacketsStatus = "";
     HubConnection HubConnection;
     Timer timer;
 
@@ -135,5 +138,13 @@ Results:
         var result = await Http.DeleteAsync($"api/Projects/{Id}");
         if (result.IsSuccessStatusCode)
             NavigationManager.NavigateTo("projects");
+    }
+
+    async Task DeletePackets()
+    {
+        deletePacketsStatus = "Deleting packets...";
+        var result = await Http.DeleteAsync($"api/Packets/DeleteByProject/{Id}");
+        if (result.IsSuccessStatusCode)
+            deletePacketsStatus = "Deleted packets.";
     }
 }

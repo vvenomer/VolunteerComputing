@@ -24,6 +24,13 @@ namespace VolunteerComputing.Client.Energy
             return process;
         }
 
+        public static async Task<Process> Await(this Task<Process> processTask)
+        {
+            var process = await processTask;
+            await process.WaitForExitAsync();
+            return process;
+        }
+
         public static async Task<Process> WaitThenKill(this Process process, TimeSpan killTime)
         {
             await Task.Delay(killTime);
@@ -38,47 +45,64 @@ namespace VolunteerComputing.Client.Energy
 
         public static async Task<string> GetResultAsync(this Process process)
         {
-            if (process.ExitCode != -1 && process.ExitCode != 0)
-                throw new Exception($"{Path.GetFileNameWithoutExtension(process.StartInfo.FileName)} exited with code: {process.ExitCode}");
+            await process.CheckForError();
             var output = await process.StandardOutput.ReadToEndAsync();
             return output;
         }
 
-        public static async Task<string> RunProcess(ProcessStartInfo processStartInfo)
+        public static async Task<string> GetResultFromErrorAsync(this Task<Process> processTask)
+        {
+            return await (await processTask).GetResultFromErrorAsync();
+        }
+
+        public static async Task<string> GetResultFromErrorAsync(this Process process)
+        {
+            await process.CheckForError();
+            var output = await process.StandardError.ReadToEndAsync();
+            return output;
+        }
+
+        private static async Task CheckForError(this Process process)
+        {
+            //137 - exit code for nvidia-smi for linux
+            //-1 - exit code for nvidia-smi for windows
+            if (process.ExitCode != 137 && process.ExitCode != -1 && process.ExitCode != 0)
+            {
+                var file = Path.GetFileNameWithoutExtension(process.StartInfo.FileName);
+                var error = await process.StandardError.ReadToEndAsync();
+                var output = await process.StandardOutput.ReadToEndAsync();
+                var message = $"{file} exited with code: {process.ExitCode}";
+                if(!string.IsNullOrWhiteSpace(output))
+                    message += ", output: " + output;
+                if(!string.IsNullOrWhiteSpace(error))
+                    message += ", error: " + error;
+                throw new Exception(message);
+            }
+        }
+
+        public static async Task<string> RunProcess(this ProcessStartInfo processStartInfo)
         {
             return await processStartInfo
                 .Start()
                 .Await()
                 .GetResultAsync();
-            /*processStartInfo.RedirectStandardOutput = true;
-            processStartInfo.RedirectStandardError = true;
-            processStartInfo.RedirectStandardInput = true;
-            var process = Process.Start(processStartInfo);
-
-            if (process.ExitCode != 0)
-                throw new Exception($"{Path.GetFileNameWithoutExtension(processStartInfo.FileName)} exited with code: {process.ExitCode}");
-            var output = await process.StandardOutput.ReadToEndAsync();
-            return output;*/
         }
 
-        public static async Task<string> RunProcessAndKill(ProcessStartInfo processStartInfo, TimeSpan killTime)
+        public static async Task<string> RunProcessReadError(this ProcessStartInfo processStartInfo)
+        {
+            return await processStartInfo
+                .Start()
+                .Await()
+                .GetResultFromErrorAsync();
+        }
+
+        public static async Task<string> RunProcessAndKill(this ProcessStartInfo processStartInfo, TimeSpan killTime)
         {
             return await processStartInfo
                 .Start()
                 .WaitThenKill(killTime)
+                .Await()
                 .GetResultAsync();
-            /*processStartInfo.RedirectStandardOutput = true;
-            processStartInfo.RedirectStandardError = true;
-            processStartInfo.RedirectStandardInput = true;
-            var process = Process.Start(processStartInfo);
-            await Task.Delay(killTime);
-            process.Kill();
-            //await process.WaitForExitAsync();
-
-            if (process.ExitCode != -1 && process.ExitCode != 0)
-                throw new Exception($"{Path.GetFileNameWithoutExtension(processStartInfo.FileName)} exited with code: {process.ExitCode}");
-            var output = await process.StandardOutput.ReadToEndAsync();
-            return output;*/
         }
     }
 }

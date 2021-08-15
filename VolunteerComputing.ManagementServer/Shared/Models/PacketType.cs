@@ -13,6 +13,8 @@ namespace VolunteerComputing.Shared.Models
 
         public ICollection<PacketTypeToComputeTask> ComputeTasks { get; set; }
 
+        public ICollection<Packet> Packets { get; set; }
+
         public override bool Equals(object obj)
         {
             return obj is PacketType type && Equals(type);

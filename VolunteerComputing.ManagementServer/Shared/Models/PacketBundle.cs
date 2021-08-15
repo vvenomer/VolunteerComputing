@@ -1,9 +1,10 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace VolunteerComputing.Shared.Models
 {
-    public class PacketBundle
+    public class PacketBundle  : IEquatable<PacketBundle>
     {
         public int Id { get; set; }
         public int TimesSent { get; set; }
@@ -11,6 +12,18 @@ namespace VolunteerComputing.Shared.Models
         public ComputeTask ComputeTask { get; set; }
         public ICollection<Packet> Packets { get; set; }
         public ICollection<BundleResult> BundleResults { get; set; }
+
+        
+        public bool Equals(PacketBundle other)
+        {
+            return other.Id == Id;
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is PacketBundle packetBundle
+                && Equals(packetBundle);
+        }
 
         public IEnumerable<Packet> Extend(IEnumerable<Packet> packets)
         {
@@ -28,6 +41,11 @@ namespace VolunteerComputing.Shared.Models
                 Packets.Add(packet);
             }
             return packetsToAdd;
+        }
+
+        public override int GetHashCode()
+        {
+            return Id.GetHashCode();
         }
     }
 }

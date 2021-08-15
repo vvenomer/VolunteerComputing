@@ -4,6 +4,7 @@
 @using VolunteerComputing.Shared.Models
 @attribute [Authorize(Roles = "Editor,Admin")]
 @inject HttpClient Http
+
 <EditForm Model="@Project">
     <h3>General</h3>
     Project Name
@@ -71,7 +72,7 @@
     }
     <button class="btn btn-primary" @onclick="AddComputeTask">Add compute task</button><br>
     <button class="btn btn-primary" @onclick="Save">Save</button><br>
-
+    @saveProjectStatus<br>
     <h3>Create new packet</h3>
     <select class="form-control" @bind="packetType">
         <option disabled selected value=""> --- </option>
@@ -82,6 +83,7 @@
     </select><br>
     <InputTextArea class="form-control" rows="4" @bind-Value="packetData" /><br>
     <button class="btn btn-primary" @onclick="SendPacket">Create new packet</button>
+    @sendPacketStatus
 </EditForm>
 @code
 {
@@ -93,6 +95,8 @@
     string packetType = "";
     string packetData = "";
     Project Project { get; set; } = new Project() { MinAgreeingClients = 2 };
+    string saveProjectStatus = "";
+    string sendPacketStatus = "";
     long maxSize = 1024 * 1024;
 
     protected override async Task OnInitializedAsync()
@@ -214,17 +218,22 @@
 
     async Task Save()
     {
+        saveProjectStatus = "Saving project...";
         var res = await Http.PostAsJsonAsync("api/Projects", Project);
-        if (!res.IsSuccessStatusCode)
-            Console.WriteLine("Error saving project: " + res.StatusCode);
+        if (!res.IsSuccessStatusCode) {
+            saveProjectStatus = "Error saving project: " + res.StatusCode;
+            return;
+        }
 
         var updatedProject = await res.Content.ReadFromJsonAsync<Project>();
 
         res = await Http.PostAsJsonAsync("api/PacketTypes", packetTypes
             .Select(p => new PacketType() { Type = p.Type, Aggregable = p.Aggregable, Project = Project })
             .ToList());
-        if (!res.IsSuccessStatusCode)
-            Console.WriteLine("Error saving types: " + res.StatusCode);
+        if (!res.IsSuccessStatusCode) {
+            saveProjectStatus = "Error saving types: " + res.StatusCode;
+            return;
+        }
 
         var parsedComputeTasks = computeTasks.Select(c => new ComputeTask
         {
@@ -246,12 +255,16 @@
         });
 
         res = await Http.PostAsJsonAsync($"api/ComputeTasks?projectId={updatedProject.Id}", parsedComputeTasks);
-        if (!res.IsSuccessStatusCode)
-            Console.WriteLine("Error saving tasks: " + res.StatusCode);
+        if (!res.IsSuccessStatusCode) {
+            saveProjectStatus = "Error saving tasks: " + res.StatusCode;
+            return;
+        }
+        saveProjectStatus = "Saved Project";
     }
 
     async Task SendPacket()
     {
+        sendPacketStatus = "Sending packet...";
         var type = packetTypes.FirstOrDefault(t => t.Type == packetType);
         Console.WriteLine("data: " + packetData + " type: " + packetType);
         Console.WriteLine("Type: " + type?.Type + " agr: " + type?.Aggregable);
@@ -266,5 +279,6 @@
             }
         };
         await Http.PostAsJsonAsync("api/Packets", packet);
+        sendPacketStatus = "Packet sent";
     }
 }

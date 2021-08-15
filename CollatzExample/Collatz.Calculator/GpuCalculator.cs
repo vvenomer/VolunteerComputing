@@ -1,4 +1,6 @@
-﻿using Cuda;
+﻿using ILGPU;
+using ILGPU.Runtime;
+using ILGPU.Runtime.Cuda;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -10,73 +12,53 @@ namespace Collatz.Calculator
 {
     class GpuCalculator
     {
-        public bool IsWorking { get; private set; } = true;
-        Task task;
-        BlockingCollection<(int, int)> collection = new();
-        public List<(int, int)> Results { get; private set; } = new();
-
-        public GpuCalculator(int maxCount, int maxSteps)
+        static void Collatz(Index1 i, int start, int count, ArrayView<int> stepsArray, int max)
         {
-            task = Task.Run(async () =>
-            {
-                var gpu = new Gpu();
-                gpu.LoadModule("collatz.cu");
-                var deviceSteps = gpu.AllocMemory<int>(maxCount);
-                IsWorking = false;
-                while (!collection.IsCompleted)
-                {
-                    if (collection.TryTake(out var a))
-                    {
-                        IsWorking = true;
-                        var (start, count) = a;
+			if (i < count)
+			{
+				int n = start + i;
 
-                        while (true)
-                        {
-                            try
-                            {
-                                await gpu.RunFunctionAsync(
-                                    "collatz",
-                                    count,
-                                    new object[] { start, count, deviceSteps.pointer, maxSteps });
-                                Results.AddRange(deviceSteps.Get().Take(count).Select((s, i) => (i + start, s)));
-                                break;
-                            }
-                            catch (Exception ex)
-                            {
-                                Console.WriteLine(ex);
-                            }
-                        }
+				for (int steps = 1; steps < max; steps++)
+				{
+					if ((n & 1) == 1)
+						n = (n << 1) + n + 1;
+					else
+						n >>= 1;
 
-                    }
-                    else
-                        IsWorking = false;
-                }
-            });
-        }
+					if (n == 1)
+					{
+						stepsArray[i] = steps;
+						return;
+					}
+				}
+				stepsArray[i] = -1;
+			}
+		}
 
-        public async Task WaitUntilFree()
-        {
-            await Task.Run(() => SpinWait.SpinUntil(() => !IsWorking));
-        }
-
-        public void Proces(int start, int count)
-        {
-            collection.Add((start, count));
-        }
-
-        public async Task End()
-        {
-            collection.CompleteAdding();
-            await task;
-        }
-
-        public static async Task<List<int>> CalculateOnce(int start, int count, int maxSize, int maxSteps)
+        public static List<int> CalculateOnce(int start, int count, int maxSize, int maxSteps)
         {
             while (true)
             {
                 try
                 {
-                    var gpu = new Gpu();
+                    using var context = new Context();
+			        using var accelerator = new CudaAccelerator(context);
+                    var kernel = accelerator.LoadAutoGroupedStreamKernel<Index1, int, int, ArrayView<int>, int>(Collatz);
+
+                    using var deviceSteps = accelerator.Allocate<int>(maxSize);
+                    var results = new List<int>();
+                    for (int i = 0; i < count; i += maxSize)
+                    {
+                        var c = count - i;
+                        var currentCount = c > maxSize ? maxSize : c;
+                        kernel(currentCount, start + i, currentCount, deviceSteps.View, maxSteps);
+                        
+			            accelerator.Synchronize();
+                        results.AddRange(deviceSteps.GetAsArray().Take(currentCount));
+                    }
+
+
+                    /*var gpu = new Gpu();
                     gpu.LoadModule("collatz.cu");
                     var deviceSteps = gpu.AllocMemory<int>(maxSize);
                     var results = new List<int>();
@@ -89,7 +71,7 @@ namespace Collatz.Calculator
                             currentCount,
                             new object[] { start + i, currentCount, deviceSteps.pointer, maxSteps });
                         results.AddRange(deviceSteps.Get().Take(currentCount));
-                    }
+                    }*/
                     return results;
                 }
                 catch (Exception ex)
