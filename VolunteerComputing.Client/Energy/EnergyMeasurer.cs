@@ -33,7 +33,7 @@ namespace VolunteerComputing.Client.Energy
             await action();
 
             process.Kill();
-            var output = await process.GetResultAsync();
+            var output = await process.Await().GetResultAsync();
             return ToNvidiaSmiEnergyData(output);
         }
 
@@ -46,11 +46,11 @@ namespace VolunteerComputing.Client.Energy
         public static async Task<EnergyData> RunPerf(string path, Func<Task> action)
         {
             var awaiterFile = Path.GetRandomFileName();
-            var process = PerfStartInfo(path, $"VolunteerComputing.Awaiter {awaiterFile}").Start();
+            var process = PerfStartInfo(path, $"./VolunteerComputing.Awaiter {awaiterFile}").Start();
 
             await action();
             File.Create(awaiterFile).Close();
-            var output = await process.Await().GetResultAsync();
+            var output = await process.Await().GetResultFromErrorAsync();
             File.Delete(awaiterFile);
             return new PerfEnergyData(output);
         }

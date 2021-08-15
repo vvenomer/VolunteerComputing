@@ -63,10 +63,10 @@ namespace VolunteerComputing.Client
                 (cpuEnergy, gpuEnergy) = (cpuEnergyData.Watt, gpuEnergyData.Watt);
                 Console.WriteLine($"Cpu uses {cpuEnergy:0.00}/{cpuEnergyData.PowerLimit} W, " +
                     $"while Gpu uses {gpuEnergy:0.00}/{gpuEnergyData.PowerLimit} W");
-                Storage.HasSentInitMeasurements = true;
             }
 
             var conn = await CreateHubConnection();
+            Console.WriteLine("Connected to server");
 
             conn.On("SendTaskAsync", (int programId, byte[] data, bool useCpu) =>
             {
@@ -87,6 +87,8 @@ namespace VolunteerComputing.Client
             };
 
             var id = await conn.InvokeAsync<int>("SendDeviceData", data);
+            if(cpuEnergy != 0 || gpuEnergy != 0)
+                Storage.HasSentInitMeasurements = true;
             if(id == -1)
             {
                 Console.WriteLine("Server doesn't know that device, please restart application to create new device");
@@ -174,7 +176,7 @@ namespace VolunteerComputing.Client
         static async Task<HubConnection> CreateHubConnection()
         {
             var conn = new HubConnectionBuilder()
-                .WithUrl("https://localhost:8080/tasks")
+                .WithUrl("https://localhost:8181/tasks")
                 .AddMessagePackProtocol()
                 .WithAutomaticReconnect()
                 .Build();
@@ -280,7 +282,12 @@ namespace VolunteerComputing.Client
 
                 EnergyData energyData;
                 if (useCpu)
-                    energyData = await EnergyMeasurer.RunPowerLog(Storage.CpuEnergyToolPath, calculate);
+                {
+                    if(isWindows)
+                        energyData = await EnergyMeasurer.RunPowerLog(Storage.CpuEnergyToolPath, calculate);
+                    else
+                        energyData = await EnergyMeasurer.RunPerf(Storage.CpuEnergyToolPath, calculate);
+                }
                 else
                     energyData = await EnergyMeasurer.RunNvidiaSmi(Storage.GpuEnergyToolPath, calculate);
 
@@ -324,7 +331,17 @@ namespace VolunteerComputing.Client
                 }
                 ZipFile.ExtractToDirectory(zipFile, dir);
                 File.Delete(zipFile);
-                File.Move(Path.Combine(dir, programData.ExeName), file);
+                var exePath = Path.Combine(dir, programData.ExeName);
+                if(!File.Exists(exePath))
+                    exePath += ".exe";
+                if(!File.Exists(exePath))
+                    exePath = Path.Combine(dir, Path.GetFileNameWithoutExtension(programData.ExeName));
+                
+                File.Move(exePath, file);
+            }
+            if(!isWindows)
+            {
+                await Process.Start("/bin/bash", $"-c \"chmod 775 {file}\"").Await();
             }
         }
     }

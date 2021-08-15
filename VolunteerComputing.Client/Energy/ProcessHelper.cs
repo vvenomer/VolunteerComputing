@@ -24,6 +24,13 @@ namespace VolunteerComputing.Client.Energy
             return process;
         }
 
+        public static async Task<Process> Await(this Task<Process> processTask)
+        {
+            var process = await processTask;
+            await process.WaitForExitAsync();
+            return process;
+        }
+
         public static async Task<Process> WaitThenKill(this Process process, TimeSpan killTime)
         {
             await Task.Delay(killTime);
@@ -94,6 +101,7 @@ namespace VolunteerComputing.Client.Energy
             return await processStartInfo
                 .Start()
                 .WaitThenKill(killTime)
+                .Await()
                 .GetResultAsync();
         }
     }
