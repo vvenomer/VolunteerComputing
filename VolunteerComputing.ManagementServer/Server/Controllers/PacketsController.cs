@@ -110,6 +110,36 @@ namespace VolunteerComputing.ManagementServer.Server.Controllers
             return NoContent();
         }
 
+        [HttpDelete("DeleteByProject/{projectId}")]
+        public async Task<IActionResult> DeleteByProject(long projectId)
+        {
+            var project = await _context.Projects
+                .AsSplitQuery()
+                .Include(p => p.PacketTypes)
+                    .ThenInclude(t => t.Packets)
+                        .ThenInclude(p => p.Bundle)
+                        .ThenInclude(p => p.BundleResults)
+                .FirstOrDefaultAsync(p => p.Id == projectId);
+            if (project == null)
+            {
+                return NotFound();
+            }
+            var packets = project.PacketTypes
+                .SelectMany(p => p.Packets)
+                .ToList();
+            
+            foreach (var packet in packets)
+            {
+                ShareAPI.RemoveFromShare(packet.Data);
+            }
+            _context.Packets.RemoveRange(packets);
+            _context.BundleResults.RemoveRange(packets.Where(p => p.BundleResult != null).Select(p => p.BundleResult).Distinct());
+            _context.Bundles.RemoveRange(packets.Where(p => p.Bundle != null).Select(p => p.Bundle).Distinct());
+            await _context.SaveChangesAsync();
+
+            return NoContent();
+        }
+
         private bool PacketExists(long id)
         {
             return _context.Packets.Any(e => e.Id == id);

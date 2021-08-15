@@ -47,19 +47,18 @@ namespace VolunteerComputing.TaskServer
             {
                 app.UseDeveloperExceptionPage();
             }
-            
-            app.UseRouting();
-
-            app.UseResponseCompression();
-
-            app.UseEndpoints(endpoints =>
-            {
-                endpoints.MapGet("/", async context =>
+            app
+                .UseHttpsRedirection()
+                .UseRouting()
+                .UseResponseCompression()
+                .UseEndpoints(endpoints =>
                 {
-                    await context.Response.WriteAsync("Hello World!");
+                    endpoints.MapGet("/", async context =>
+                    {
+                        await context.Response.WriteAsync("Hello World!");
+                    });
+                    endpoints.MapHub<TaskServerHub>("/tasks");
                 });
-                endpoints.MapHub<TaskServerHub>("/tasks");
-            });
         }
     }
 }

@@ -9,13 +9,15 @@ namespace VolunteerComputing.Shared
 {
     public class ShareAPI
     {
-        static readonly string uploadDirectory = @"C:\Users\Pawelb\Desktop\Programowanie\csharp\VolunteerComputing\Upload";
+        static readonly string uploadDirectory = @"/home/vvenomer/Desktop/Programowanie/VolunteerComputing/Upload";
         public static byte[] GetFromShare(string path)
         {
+            EnsurePathCreated();
             return File.ReadAllBytes(path);
         }
         public static string GetTextFromShare(string path)
         {
+            EnsurePathCreated();
             return File.ReadAllText(path);
         }
 
@@ -23,19 +25,33 @@ namespace VolunteerComputing.Shared
         {
             var program = Convert.FromBase64String(file);
             var path = Path.Combine(uploadDirectory, Path.GetRandomFileName());
+            EnsurePathCreated();
             File.WriteAllBytes(path, program);
             return path;
         }
         public static string SaveTextToShare(string text)
         {
             var path = Path.Combine(uploadDirectory, Path.GetRandomFileName());
+            EnsurePathCreated();
             File.WriteAllText(path, text);
             return path;
         }
 
         public static void RemoveFromShare(string path)
         {
-            File.Delete(path);
+            try
+            {
+                File.Delete(path);
+            }
+            catch (System.Exception)
+            {
+
+            }
+        }
+
+        private static void EnsurePathCreated()
+        {
+            Directory.CreateDirectory(uploadDirectory);
         }
     }
 }

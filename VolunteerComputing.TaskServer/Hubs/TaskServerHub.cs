@@ -113,6 +113,8 @@ namespace VolunteerComputing.TaskServer.Hubs
             device.ConnectionId = Context.ConnectionId;
             device.CpuWorksOnBundle = 0;
             device.GpuWorksOnBundle = 0;
+            while(TaskProcessorService.Id == null)
+                await Task.Delay(100);
             device.TaskServerId = TaskProcessorService.Id;
 
             if (device.Id == 0)

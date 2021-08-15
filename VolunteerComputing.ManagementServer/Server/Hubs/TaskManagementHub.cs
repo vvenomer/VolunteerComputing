@@ -2,6 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using VolunteerComputing.ManagementServer.Server.Data;
@@ -17,6 +18,7 @@ namespace VolunteerComputing.ManagementServer.Server.Hubs
         static int finished = 0;
         readonly object connectedServersLocker = new();
         readonly object finishedLocker = new();
+        readonly HashSet<string> taskServers = new HashSet<string>();
         public const string taskServerId = "t";
         public const string clientId = "c";
 
@@ -36,7 +38,20 @@ namespace VolunteerComputing.ManagementServer.Server.Hubs
             {
                 connectedServers++;
             }
-            await Groups.AddToGroupAsync(Context.ConnectionId, taskServerId);
+            var id = Context.ConnectionId;
+            taskServers.Add(id);
+            await Groups.AddToGroupAsync(id, taskServerId);
+        }
+
+        public override async Task OnDisconnectedAsync(Exception exception)
+        {
+            if(taskServers.Contains(Context.ConnectionId))
+            {
+                lock (connectedServersLocker)
+                {
+                    connectedServers--;
+                }
+            }
         }
 
         public async Task JoinClients()
