@@ -153,7 +153,6 @@ namespace VolunteerComputing.TaskServer.Hubs
                 return includes(dbContext.Devices).FirstOrDefault(d => d.ConnectionId == Context.ConnectionId);
 
             return dbContext.Devices.FirstOrDefault(d => d.ConnectionId == Context.ConnectionId);
-
         }
     }
 }
