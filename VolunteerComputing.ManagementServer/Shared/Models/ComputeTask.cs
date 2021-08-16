@@ -16,5 +16,26 @@ namespace VolunteerComputing.Shared.Models
         public string LinuxGpuProgram { get; set; }
         public string ExeFilename { get; set; }
         public Project Project { get; set; }
+
+        public IEnumerable<(bool isWindows, bool isCpu)> GetAvailablePlatforms()
+        {
+
+            if (WindowsCpuProgram is not null)
+            {
+                yield return (true, true);
+            }
+            if (WindowsGpuProgram is not null)
+            {
+                yield return (true, false);
+            }
+            if (LinuxCpuProgram is not null)
+            {
+                yield return (false, true);
+            }
+            if (LinuxGpuProgram is not null)
+            {
+                yield return (false, false);
+            }
+        }
     }
 }
