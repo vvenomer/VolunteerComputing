@@ -84,7 +84,8 @@ namespace VolunteerComputing.ManagementServer.Server.Hubs
                     {
                         var (project, data) = g;
                         var fileId = await ResultsHelper.SaveResult(project.Name, data);
-                        var result = new Result { FileId = fileId, Project = project, CreatedAt = DateTime.Now };
+                        var now = DateTime.UtcNow;
+                        var result = new Result { FileId = fileId, Project = project, CreatedAt = now, SecondsElapsed = (now - project.StartTime).TotalSeconds };
                         dbContext.Result.Add(result);
 
                         await Clients.Group(clientId).NewResult(result);
