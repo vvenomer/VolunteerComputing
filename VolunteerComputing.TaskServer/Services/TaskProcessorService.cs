@@ -21,7 +21,6 @@ namespace VolunteerComputing.TaskServer.Services
         readonly IHubContext<TaskServerHub, ITaskServerHubMessages> taskServerHub;
         readonly IServiceScopeFactory scopeFactory;
         readonly HubConnection hubConnection;
-        const double changeToUseNewDevice = 0.5;
         public static bool ShouldStartWork { get; set; }
         public static string Id { get; set; }
 
@@ -31,7 +30,7 @@ namespace VolunteerComputing.TaskServer.Services
             this.scopeFactory = scopeFactory;
 
             hubConnection = new HubConnectionBuilder()
-                .WithUrl("https://localhost:5101/tasks")
+                .WithUrl("https://localhost:5001/tasks")
                 .AddMessagePackProtocol()
                 .WithAutomaticReconnect()
                 .Build();
@@ -97,7 +96,7 @@ namespace VolunteerComputing.TaskServer.Services
 
                         for (int i = bundle.TimesSent; i < computeTask.Project.MinAgreeingClients; i++)
                         {
-                            var selectedDeviceWithStat = DeviceManager.ChooseDevice(devicesForBundle, computeTask, changeToUseNewDevice);
+                            var selectedDeviceWithStat = DeviceManager.ChooseDevice(devicesForBundle, computeTask);
                             var selectedDevice = selectedDeviceWithStat?.Device;
                             var isCpu = selectedDeviceWithStat?.IsCpu ?? false;
 

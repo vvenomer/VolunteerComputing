@@ -8,7 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using VolunteerComputing.ManagementServer.Server.Models;
-using VolunteerComputing.Shared.Models;
+using VolunteerComputing.Shared.Dto;
 
 namespace VolunteerComputing.ManagementServer.Server.Controllers
 {

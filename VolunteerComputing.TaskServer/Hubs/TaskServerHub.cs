@@ -8,6 +8,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 using VolunteerComputing.Shared;
+using VolunteerComputing.Shared.Dto;
 using VolunteerComputing.Shared.Models;
 using VolunteerComputing.TaskServer.Data;
 using VolunteerComputing.TaskServer.Services;
