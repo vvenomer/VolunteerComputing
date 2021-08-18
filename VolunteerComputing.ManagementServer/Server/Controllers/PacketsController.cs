@@ -1,9 +1,9 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
-using Microsoft.AspNetCore.SignalR.Client;
 using Microsoft.EntityFrameworkCore;
 using VolunteerComputing.ManagementServer.Server.Data;
 using VolunteerComputing.ManagementServer.Server.Hubs;
@@ -82,11 +82,13 @@ namespace VolunteerComputing.ManagementServer.Server.Controllers
         [HttpPost]
         public async Task<ActionResult<Packet>> PostPacket(Packet packet)
         {
-            var type = packet.Type.Type;
-            var projectName = packet.Type.Project.Name;
-            packet.Type = _context.PacketTypes.FirstOrDefault(t => t.Type == type && t.Project.Name == projectName);
+            var type = packet.Type;
+            var projectName = type.Project.Name;
+            packet.Type = _context.PacketTypes.FirstOrDefault(t => t.Type == type.Type && t.Project.Name == projectName);
             packet.Data = ShareAPI.SaveTextToShare(packet.Data);
             _context.Packets.Add(packet);
+            var project = await _context.Projects.FirstOrDefaultAsync(p => p.Name == projectName);
+            project.StartTime = DateTime.UtcNow;
             await _context.SaveChangesAsync();
             
             await hubContext.Clients.Group(TaskManagementHub.taskServerId).PacketAdded();

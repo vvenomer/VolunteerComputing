@@ -64,16 +64,16 @@ Minimum number of agreeing volunteer clients to consider result true: @project.M
 }
 <br>
 
-Results:
+Results (UTC):
 <ul>
 
     @foreach (var result in results)
     {
 
         var href = $"api/Results?fileId={result.FileId}&projectName={project.Name}";
-        <li>
-            <a href="@href">@result.CreatedAt</a>
-        </li>
+    <li>
+        <a href="@href">@result.CreatedAt</a>, time: @TimeSpan.FromSeconds(result.SecondsElapsed)
+    </li>
     }
 </ul>
 

@@ -14,5 +14,6 @@ namespace VolunteerComputing.Shared.Models
 
         public int ProjectId { get; set; }
         public Project Project { get; set; }
+        public double SecondsElapsed { get; set; }
     }
 }

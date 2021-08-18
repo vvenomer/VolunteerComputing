@@ -13,6 +13,7 @@ namespace VolunteerComputing.Shared.Models
         public int MinAgreeingClients { get; set; }
         public ChoosingStrategy ChoosingStrategy { get; set; }
         public double ChanceToUseNewDevice { get; set; }
+        public DateTime StartTime { get; set; }
         public ICollection<ComputeTask> ComputeTasks { get; set; }
         public ICollection<PacketType> PacketTypes { get; set; }
         public ICollection<Result> Results { get; set; }
