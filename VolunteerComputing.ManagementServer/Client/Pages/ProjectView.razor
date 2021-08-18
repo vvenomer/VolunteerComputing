@@ -6,6 +6,17 @@
 @inject NavigationManager NavigationManager
 <h3>Project @project.Name</h3>
 Minimum number of agreeing volunteer clients to consider result true: @project.MinAgreeingClients
+<select class="form-control" @bind="project.ChoosingStrategy">
+    <option disabled selected> --- </option>
+    @foreach (var choosingStrategy in Enum.GetValues(typeof(ChoosingStrategy)))
+    {
+        <option value="@choosingStrategy">@choosingStrategy.ToString()</option>
+    }
+</select>
+<input class="form-control" type="number" @bind="project.ChanceToUseNewDevice" />
+<button class="btn btn-primary" @onclick="UpdateStrategy">Update Strategy</button><br>
+@updateStrategyStatus
+<br>
 
 <table class="table table-striped">
     <thead>
@@ -79,6 +90,7 @@ Results:
     List<Result> results = new();
     int PacketsCount = 1;
     string deletePacketsStatus = "";
+    string updateStrategyStatus = "";
     HubConnection HubConnection;
     Timer timer;
 
@@ -131,6 +143,14 @@ Results:
             PacketsCount = sum;
             StateHasChanged();
         }, null, 0, 1000);
+    }
+
+    async Task UpdateStrategy()
+    {
+        updateStrategyStatus = "Updating strategy...";
+        var result = await Http.PutAsJsonAsync($"api/Projects/UpdateStrategy/{Id}", project.Strategy);
+        if (result.IsSuccessStatusCode)
+            updateStrategyStatus = "Updated strategy.";
     }
 
     async Task Delete()

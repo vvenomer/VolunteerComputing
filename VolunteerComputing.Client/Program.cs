@@ -11,6 +11,7 @@ using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using VolunteerComputing.Client.Energy;
 using VolunteerComputing.Shared;
+using VolunteerComputing.Shared.Dto;
 using VolunteerComputing.Shared.Models;
 
 namespace VolunteerComputing.Client
@@ -111,9 +112,9 @@ namespace VolunteerComputing.Client
                     return path;
 
                 var alternativePath = @"C:\Windows\System32\DriverStore\FileRepository";
-                var driverStartsWith = @"nvdm";
+                var driverStartsWith = @"nv";
 
-                foreach (var driver in Directory.GetDirectories(alternativePath).Where(x => x.StartsWith(driverStartsWith)))
+                foreach (var driver in Directory.GetDirectories(alternativePath).Where(x => new DirectoryInfo(x).Name.StartsWith(driverStartsWith)))
                 {
                     var pathInDriver = Path.Combine(alternativePath, driver, file);
                     if (File.Exists(pathInDriver))
@@ -176,7 +177,7 @@ namespace VolunteerComputing.Client
         static async Task<HubConnection> CreateHubConnection()
         {
             var conn = new HubConnectionBuilder()
-                .WithUrl("https://localhost:8181/tasks")
+                .WithUrl("https://localhost:8080/tasks")
                 .AddMessagePackProtocol()
                 .WithAutomaticReconnect()
                 .Build();

@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using VolunteerComputing.ManagementServer.Server.Data;
+using VolunteerComputing.Shared.Dto;
 using VolunteerComputing.Shared.Models;
 
 namespace VolunteerComputing.ManagementServer.Server.Controllers
@@ -70,6 +71,19 @@ namespace VolunteerComputing.ManagementServer.Server.Controllers
                 }
             }
 
+            return NoContent();
+        }
+
+        [HttpPut("UpdateStrategy/{id}")]
+        public async Task<IActionResult> UpdateStrategy(int id, Strategy strategy)
+        {
+            var project = await _context.Projects.FindAsync(id);
+            if (project == null)
+                return NotFound();
+
+            project.Strategy = strategy;
+
+            await _context.SaveChangesAsync();
             return NoContent();
         }
 

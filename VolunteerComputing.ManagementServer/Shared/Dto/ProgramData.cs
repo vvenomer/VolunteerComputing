@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace VolunteerComputing.Shared.Models
+namespace VolunteerComputing.Shared.Dto
 {
     public class ProgramData
     {

@@ -11,16 +11,33 @@ namespace VolunteerComputing.TaskServer
     {
         static readonly Random random = new();
 
+        static readonly Dictionary<ChoosingStrategy, Func<IEnumerable<DeviceWithStat>, double, DeviceWithStat>> StrategiesDictionary = new()
+        {
+            [ChoosingStrategy.Energy] = ChooseDeviceBasedOnEnergy,
+            [ChoosingStrategy.Speed] = ChooseDeviceBasedOnSpeed,
+            [ChoosingStrategy.Random] = ChooseDeviceRandom
+        };
+
         public static async Task RefreshDevices(IEnumerable<DeviceData> devices, VolunteerComputingContext context)
         {
             await Task.WhenAll(devices.Select(async d => await context.Entry(d).ReloadAsync()));
         }
 
-        public static DeviceWithStat ChooseDevice(IEnumerable<DeviceData> aviableDevices, ComputeTask computeTask, double changeToUseNewDevice)
+        public static DeviceWithStat ChooseDevice(IEnumerable<DeviceData> aviableDevices, ComputeTask computeTask)
         {
             var devices = GetDevices(aviableDevices, computeTask).ToList();
 
-            if (devices.Any(d => d.EnergyEfficiency == 0) && devices.Any(d => d.EnergyEfficiency > 0) && random.NextDouble() < changeToUseNewDevice)
+            //use some strategy
+            var project = computeTask.Project;
+
+            var strategy = StrategiesDictionary[project.ChoosingStrategy];
+
+            return strategy(devices, project.ChanceToUseNewDevice);
+        }
+
+        static DeviceWithStat ChooseDeviceBasedOnEnergy(IEnumerable<DeviceWithStat> devices, double chanceToUseNewDevice)
+        {
+            if (devices.Any(d => d.EnergyEfficiency == 0) && devices.Any(d => d.EnergyEfficiency > 0) && random.NextDouble() < chanceToUseNewDevice)
             {
                 //there are some devices already checked and some new ones - try new one
                 return devices
@@ -28,9 +45,32 @@ namespace VolunteerComputing.TaskServer
             }
             else
             {
-                //special case for when there are no devices?
                 return devices
                     .OrderByDescending(d => d.EnergyEfficiency)
+                    .FirstOrDefault();
+            }
+        }
+
+        static DeviceWithStat ChooseDeviceRandom(IEnumerable<DeviceWithStat> devices, double _)
+        {
+            var count = devices.Count();
+            if (count == 0)
+                return null;
+            return devices.ElementAt(random.Next(count));
+        }
+
+        static DeviceWithStat ChooseDeviceBasedOnSpeed(IEnumerable<DeviceWithStat> devices, double chanceToUseNewDevice)
+        {
+            if (devices.Any(d => d.SpeedEfficiency == 0) && devices.Any(d => d.SpeedEfficiency > 0) && random.NextDouble() < chanceToUseNewDevice)
+            {
+                //there are some devices already checked and some new ones - try new one
+                return devices
+                    .FirstOrDefault(d => d.SpeedEfficiency == 0);
+            }
+            else
+            {
+                return devices
+                    .OrderByDescending(d => d.SpeedEfficiency)
                     .FirstOrDefault();
             }
         }
