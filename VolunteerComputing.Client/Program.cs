@@ -41,13 +41,13 @@ namespace VolunteerComputing.Client
             if (isIntel && Storage.CpuEnergyToolPath == null)
             {
                 if(isWindows)
-                    Storage.CpuEnergyToolPath = FindPowerLogPath();
+                    Storage.CpuEnergyToolPath = await FindPowerLogPath();
                 else
                     Storage.CpuEnergyToolPath = FindPerfPath();
             }
 
             if ((isIntel && Storage.CpuEnergyToolPath == null) || (isCuda && Storage.GpuEnergyToolPath == null))
-                return; //todo: check only if aviable
+                return;
 
             double cpuEnergy = 0, gpuEnergy = 0;
             if(!Storage.HasSentInitMeasurements)
@@ -88,14 +88,14 @@ namespace VolunteerComputing.Client
             };
 
             var id = await conn.InvokeAsync<int>("SendDeviceData", data);
-            if(cpuEnergy != 0 || gpuEnergy != 0)
-                Storage.HasSentInitMeasurements = true;
             if(id == -1)
             {
                 Console.WriteLine("Server doesn't know that device, please restart application to create new device");
                 Storage.Restart();
                 return;
             }
+            if (cpuEnergy != 0 || gpuEnergy != 0)
+                Storage.HasSentInitMeasurements = true;
             Storage.Id = id;
             while (true) await Task.Delay(500);
         }
@@ -129,13 +129,38 @@ namespace VolunteerComputing.Client
             return AskForPath(file, "drivers for Nvidia graphic card");
         }
 
-        static string FindPowerLogPath() //windows only
+        static async Task<string> FindPowerLogPath() //windows only
         {
             var dir = @"C\Program Files\Intel\Power Gadget 3.6";
             var file = "PowerLog3.0.exe";
             var path = Path.Combine(dir, file);
             if (File.Exists(path))
                 return path;
+
+            var programsPath = @"C:\ProgramData\Microsoft\Windows\Start Menu";
+
+            static async Task<string> findPowerLog(string dir)
+            {
+                foreach (var file in Directory.GetFiles(dir))
+                {
+                    if(file.Contains("Power Gadget") && file.EndsWith(".lnk"))
+                    {
+                        var powershellCommand = $"(New-Object -ComObject WScript.Shell).CreateShortcut('{file}').WorkingDirectory";
+                        var result = await new ProcessStartInfo { FileName = "powershell", Arguments = $"-c \"{powershellCommand}\"" }.RunProcess();
+                        return result.Trim();
+                    }
+                }
+                return Directory.GetDirectories(dir).Select(d => findPowerLog(d).Result).FirstOrDefault(p => p is not null);
+            }
+
+            dir = await findPowerLog(programsPath);
+            if (dir is not null)
+            {
+                path = Path.Combine(dir, file);
+                if (File.Exists(path))
+                    return path;
+            }
+
             return AskForPath(file, "Power Gadget installed");
             //return @"D:\Intel\Power Gadget 3.6\PowerLog3.0.exe";
         }
