@@ -40,7 +40,7 @@ namespace VolunteerComputing.TaskServer
                 .Include(x => x.Type).ThenInclude(p => p.Project)
                 .Where(x => x.BundleId == null && x.BundleResultId == null)
                 .ToList();
-            var tasks = context.ComputeTask
+            var tasks = context.ComputeTasks
                 .Include(x => x.Project)
                 .Include(x => x.PacketTypes).ThenInclude(x => x.PacketType)
                 .ToList();

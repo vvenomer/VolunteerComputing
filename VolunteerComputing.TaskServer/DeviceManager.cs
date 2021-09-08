@@ -54,9 +54,7 @@ namespace VolunteerComputing.TaskServer
         static DeviceWithStat ChooseDeviceRandom(IEnumerable<DeviceWithStat> devices, double _)
         {
             var count = devices.Count();
-            if (count == 0)
-                return null;
-            return devices.ElementAt(random.Next(count));
+            return count == 0 ? null : devices.ElementAt(random.Next(count));
         }
 
         static DeviceWithStat ChooseDeviceBasedOnSpeed(IEnumerable<DeviceWithStat> devices, double chanceToUseNewDevice)

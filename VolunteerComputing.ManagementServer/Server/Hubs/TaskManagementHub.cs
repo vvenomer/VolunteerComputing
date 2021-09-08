@@ -18,7 +18,7 @@ namespace VolunteerComputing.ManagementServer.Server.Hubs
         static int finished = 0;
         readonly object connectedServersLocker = new();
         readonly object finishedLocker = new();
-        readonly HashSet<string> taskServers = new HashSet<string>();
+        readonly HashSet<string> taskServers = new();
         public const string taskServerId = "t";
         public const string clientId = "c";
 
@@ -45,12 +45,14 @@ namespace VolunteerComputing.ManagementServer.Server.Hubs
 
         public override async Task OnDisconnectedAsync(Exception exception)
         {
-            if(taskServers.Contains(Context.ConnectionId))
+            var connectionId = Context.ConnectionId;
+            if(taskServers.Contains(connectionId))
             {
                 lock (connectedServersLocker)
                 {
                     connectedServers--;
                 }
+                taskServers.Remove(connectionId);
             }
         }
 
@@ -86,7 +88,7 @@ namespace VolunteerComputing.ManagementServer.Server.Hubs
                         var fileId = await ResultsHelper.SaveResult(project.Name, data);
                         var now = DateTime.UtcNow;
                         var result = new Result { FileId = fileId, Project = project, CreatedAt = now, SecondsElapsed = (now - project.StartTime).TotalSeconds };
-                        dbContext.Result.Add(result);
+                        dbContext.Results.Add(result);
 
                         await Clients.Group(clientId).NewResult(result);
                     });

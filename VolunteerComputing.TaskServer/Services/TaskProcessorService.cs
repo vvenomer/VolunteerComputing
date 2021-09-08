@@ -98,12 +98,12 @@ namespace VolunteerComputing.TaskServer.Services
                         {
                             var selectedDeviceWithStat = DeviceManager.ChooseDevice(devicesForBundle, computeTask);
                             var selectedDevice = selectedDeviceWithStat?.Device;
-                            var isCpu = selectedDeviceWithStat?.IsCpu ?? false;
 
                             if (selectedDevice is not null)
                             {
                                 bundle.TimesSent++;
 
+                                var isCpu = selectedDeviceWithStat.IsCpu;
                                 if (isCpu)
                                     selectedDevice.CpuWorksOnBundle = bundle.Id;
                                 else
@@ -139,20 +139,18 @@ namespace VolunteerComputing.TaskServer.Services
 
                 if (!bundles.Any())
                 {
-                    bool nothingDoesWork = !devices.Any(d => d.TaskServerId == Id && (d.CpuWorksOnBundle != 0 || d.GpuWorksOnBundle != 0));
-                    if (nothingDoesWork)
+                    bool noWorkTodo = !context.Bundles.Any();
+                    if (noWorkTodo)
                     {
-                        Console.SetCursorPosition(0, 2);
+                        Console.SetCursorPosition(0, 4);
                         Console.WriteLine("Finished " + ++k);
 
                         await hubConnection.SendAsync("ReportFinished", cancellationToken: stoppingToken);
-
                         ShouldStartWork = false;
                         return null;
                     }
-                    await DeviceManager.RefreshDevices(devices, context);
                     await Task.Delay(2000, stoppingToken); //wait for new devices
-                    continue;
+                    break;
                 }
 
                 return bundles;

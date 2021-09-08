@@ -20,7 +20,7 @@ namespace VolunteerComputing.TaskServer.Data
         {
         }
 
-        public virtual DbSet<ComputeTask> ComputeTask { get; set; }
+        public virtual DbSet<ComputeTask> ComputeTasks { get; set; }
         public virtual DbSet<Packet> Packets { get; set; }
         public virtual DbSet<PacketType> PacketTypes { get; set; }
         public virtual DbSet<PacketTypeToComputeTask> PacketTypeToComputeTasks { get; set; }

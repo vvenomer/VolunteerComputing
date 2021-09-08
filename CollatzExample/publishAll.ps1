@@ -16,12 +16,12 @@ Write-Host 'Creating calculator CPU version'
 
 Set-Content -Path $config -Value '{ "isCpu": true }'
 
-Get-ChildItem -Path publish/Collatz.Calculator.exe, publish/collatz.cu, publish/CudaCpp.dll, $config |
+Get-ChildItem -Path publish/Collatz.Calculator.exe, $config |
     Compress-Archive -DestinationPath .\publish\calculatorCpu.zip
 
 Write-Host 'Creating calculator GPU version'
 
 Set-Content -Path publish/config.json -Value '{ "isCpu": false }'
 
-Get-ChildItem -Path publish/Collatz.Calculator.exe, publish/collatz.cu, publish/CudaCpp.dll, $config |
+Get-ChildItem -Path publish/Collatz.Calculator.exe, $config |
     Compress-Archive -DestinationPath .\publish\calculatorGpu.zip

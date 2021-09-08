@@ -118,10 +118,10 @@ namespace VolunteerComputing.ManagementServer.Server.Controllers
             }
             _context.PacketTypeToComputeTasks.RemoveRange(project.PacketTypes.SelectMany(t => t.ComputeTasks));
             _context.DeviceStats.RemoveRange(project.ComputeTasks.SelectMany(s => s.DeviceStats));
-            _context.Result.RemoveRange(project.Results);
+            _context.Results.RemoveRange(project.Results);
 
             _context.PacketTypes.RemoveRange(project.PacketTypes);
-            _context.ComputeTask.RemoveRange(project.ComputeTasks);
+            _context.ComputeTasks.RemoveRange(project.ComputeTasks);
             _context.Projects.Remove(project);
             await _context.SaveChangesAsync();
 

@@ -91,13 +91,13 @@ namespace VolunteerComputing.Client.Energy
             return ToPowerLogEnergyData(output, resultFile);
         }
 
-        static ProcessStartInfo NvidiaSmiStartInfo(string path) => new ProcessStartInfo
+        static ProcessStartInfo NvidiaSmiStartInfo(string path) => new()
         {
             FileName = path,
             Arguments = "-i 0 --query-gpu=\"utilization.gpu,utilization.memory,power.draw,power.limit\" --format=\"csv,noheader,nounits\" -lms 500"
         };
 
-        static ProcessStartInfo PerfStartInfo(string path, string command) => new ProcessStartInfo
+        static ProcessStartInfo PerfStartInfo(string path, string command) => new()
         {
             FileName = path,
             Arguments = $"stat -e power/energy-cores/,power/energy-pkg/,power/energy-ram/ -a {command}"
