@@ -29,8 +29,8 @@ namespace VolunteerComputing.TaskServer.Hubs
             var device = GetDevice();
             if (device is not null)
             {
-                await HandleFailedCalculationAsync(device, true);
-                await HandleFailedCalculationAsync(device, false);
+                await HandleFailedCalculationAsync(device, true, saveChanges: false);
+                await HandleFailedCalculationAsync(device, false, saveChanges: false);
                 device.TaskServerId = null;
                 device.ConnectionId = null;
                 await dbContext.SaveChangesAsync();
@@ -52,7 +52,7 @@ namespace VolunteerComputing.TaskServer.Hubs
                 device.GpuWorksOnBundle = 0;
             await dbContext.SaveChangesAsync();
 
-            var computeTask = dbContext.ComputeTask
+            var computeTask = dbContext.ComputeTasks
                 .Include(x => x.PacketTypes)
                 .ThenInclude(x => x.PacketType)
                 .FirstOrDefault(t => t.Id == programId);
@@ -91,7 +91,7 @@ namespace VolunteerComputing.TaskServer.Hubs
 
         public ProgramData GetProgram(int programId, bool windows, bool cpu)
         {
-            var task = dbContext.ComputeTask.FirstOrDefault(t => t.Id == programId);
+            var task = dbContext.ComputeTasks.FirstOrDefault(t => t.Id == programId);
             var programPath = windows
                 ? (cpu
                     ? task.WindowsCpuProgram
@@ -119,9 +119,8 @@ namespace VolunteerComputing.TaskServer.Hubs
             device.TaskServerId = TaskProcessorService.Id;
 
             if (device.Id == 0)
-            {
                 dbContext.Devices.Add(device);
-            }
+
             await dbContext.SaveChangesAsync();
             return device.Id;
         }
@@ -129,11 +128,11 @@ namespace VolunteerComputing.TaskServer.Hubs
         public async Task CalculationsFailed(bool isCpu)
         {
             var device = GetDevice();
-            Console.WriteLine($"calculations failed on {device.Id} device with connection id: {device.ConnectionId}");
+            Console.WriteLine($"Calculations failed on {device?.Id} device with connection id: {Context.ConnectionId}");
             await HandleFailedCalculationAsync(device, isCpu);
         }
 
-        private async Task HandleFailedCalculationAsync(DeviceData device, bool isCpu)
+        async Task HandleFailedCalculationAsync(DeviceData device, bool isCpu, bool saveChanges = true)
         {
             var bundleId = isCpu ? device.CpuWorksOnBundle : device.GpuWorksOnBundle;
             if (bundleId == 0)
@@ -145,10 +144,11 @@ namespace VolunteerComputing.TaskServer.Hubs
                 device.CpuWorksOnBundle = 0;
             else
                 device.GpuWorksOnBundle = 0;
-            await dbContext.SaveChangesAsync();
+            if(saveChanges)
+                await dbContext.SaveChangesAsync();
         }
 
-        private DeviceData GetDevice(Func<IQueryable<DeviceData>, IQueryable<DeviceData>> includes = null)
+        DeviceData GetDevice(Func<IQueryable<DeviceData>, IQueryable<DeviceData>> includes = null)
         {
             if (includes != null)
                 return includes(dbContext.Devices).FirstOrDefault(d => d.ConnectionId == Context.ConnectionId);

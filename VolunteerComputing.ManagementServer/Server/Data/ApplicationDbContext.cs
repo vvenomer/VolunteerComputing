@@ -10,7 +10,7 @@ namespace VolunteerComputing.ManagementServer.Server.Data
     public class ApplicationDbContext : ApiAuthorizationDbContext<ApplicationUser>
     {
         public virtual DbSet<PacketType> PacketTypes { get; set; }
-        public virtual DbSet<ComputeTask> ComputeTask { get; set; }
+        public virtual DbSet<ComputeTask> ComputeTasks { get; set; }
         public virtual DbSet<Packet> Packets { get; set; }
         public virtual DbSet<PacketTypeToComputeTask> PacketTypeToComputeTasks { get; set; }
         public virtual DbSet<DeviceData> Devices { get; set; }
@@ -18,7 +18,7 @@ namespace VolunteerComputing.ManagementServer.Server.Data
         public virtual DbSet<Project> Projects { get; set; }
         public virtual DbSet<PacketBundle> Bundles { get; set; }
         public virtual DbSet<BundleResult> BundleResults { get; set; }
-        public virtual DbSet<Result> Result { get; set; }
+        public virtual DbSet<Result> Results { get; set; }
 
         public ApplicationDbContext(
             DbContextOptions options,

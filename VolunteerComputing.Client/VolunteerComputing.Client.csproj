@@ -13,7 +13,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\VolunteerComputing.Awaiter\VolunteerComputing.Awaiter.csproj" />
     <ProjectReference Include="..\VolunteerComputing.ManagementServer\Shared\VolunteerComputing.Shared.csproj" />
   </ItemGroup>
 

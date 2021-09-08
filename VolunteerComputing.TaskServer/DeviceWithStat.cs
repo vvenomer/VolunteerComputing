@@ -4,12 +4,12 @@ namespace VolunteerComputing.TaskServer
 {
     public class DeviceWithStat
     {
-        double time;
-        double energy;
         public DeviceWithStat(DeviceData deviceData, bool isCpu, DeviceStat stat)
         {
             Device = deviceData;
             IsCpu = isCpu;
+            double time;
+            double energy;
             if (stat is null || stat.Count == 0)
             {
                 time = energy = double.PositiveInfinity;

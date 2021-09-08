@@ -22,7 +22,7 @@ namespace VolunteerComputing.ManagementServer.Server.Controllers
         [HttpGet("ByProject/{projectId}")]
         public ActionResult<List<Result>> GetResultsByProject(int projectId)
         {
-            return _context.Result
+            return _context.Results
                 .Where(r => r.ProjectId == projectId)
                 .ToList();
         }
@@ -30,16 +30,6 @@ namespace VolunteerComputing.ManagementServer.Server.Controllers
         [HttpGet]
         public IActionResult GetResult([FromQuery] string fileId, [FromQuery] string projectName)
         {
-            /*var result = new HttpResponseMessage(HttpStatusCode.OK)
-            {
-                Content = new ByteArrayContent(ResultsHelper.ReadResult(fileId, projectName))
-            };
-            var headers = result.Content.Headers;
-            headers.ContentDisposition = new ContentDispositionHeaderValue("attachment")
-                {
-                    FileName = "result.json"
-                };
-            headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");*/
             return File(ResultsHelper.ReadResult(fileId, projectName), "application/octet-stream", "result.json");
         }
     }

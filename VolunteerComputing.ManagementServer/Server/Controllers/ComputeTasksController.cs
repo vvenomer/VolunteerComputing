@@ -25,14 +25,14 @@ namespace VolunteerComputing.ManagementServer.Server.Controllers
         [HttpGet]
         public async Task<ActionResult<IEnumerable<ComputeTask>>> GetComputeTask()
         {
-            return await _context.ComputeTask.Include(p => p.PacketTypes).ToListAsync();
+            return await _context.ComputeTasks.Include(p => p.PacketTypes).ToListAsync();
         }
 
         // GET: api/ComputeTasks/5
         [HttpGet("{id}")]
         public async Task<ActionResult<ComputeTask>> GetComputeTask(int id)
         {
-            var computeTask = await _context.ComputeTask.Include(p => p.PacketTypes).FirstAsync(p => p.Id == id);
+            var computeTask = await _context.ComputeTasks.Include(p => p.PacketTypes).FirstAsync(p => p.Id == id);
 
             if (computeTask == null)
             {
@@ -123,7 +123,7 @@ namespace VolunteerComputing.ManagementServer.Server.Controllers
                 var packetTypes = computeTask.PacketTypes;
                 computeTask.PacketTypes = null;
                 computeTask.Project = project;
-                _context.ComputeTask.Add(computeTask);
+                _context.ComputeTasks.Add(computeTask);
                 UpdatePacketTypes(packetTypes, computeTask);
             }
             await _context.SaveChangesAsync();
@@ -135,7 +135,7 @@ namespace VolunteerComputing.ManagementServer.Server.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteComputeTask(int id)
         {
-            var computeTask = await _context.ComputeTask.FindAsync(id);
+            var computeTask = await _context.ComputeTasks.FindAsync(id);
             if (computeTask == null)
             {
                 return NotFound();
@@ -144,7 +144,7 @@ namespace VolunteerComputing.ManagementServer.Server.Controllers
             {
                 _context.PacketTypeToComputeTasks.Remove(packetType);
             }
-            _context.ComputeTask.Remove(computeTask);
+            _context.ComputeTasks.Remove(computeTask);
             await _context.SaveChangesAsync();
 
             return NoContent();
@@ -152,7 +152,7 @@ namespace VolunteerComputing.ManagementServer.Server.Controllers
 
         private bool ComputeTaskExists(int id)
         {
-            return _context.ComputeTask.Any(e => e.Id == id);
+            return _context.ComputeTasks.Any(e => e.Id == id);
         }
 
         void UpdatePacketTypes(ICollection<PacketTypeToComputeTask> packetTypes, ComputeTask computeTask)
