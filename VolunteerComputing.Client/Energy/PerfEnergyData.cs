@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
 using System.IO;
 
@@ -19,11 +18,18 @@ namespace VolunteerComputing.Client.Energy
             Time = TimeSpan.FromSeconds(GetDoubleFromLines(splited, "time elapsed"));
             Watt = Jules / Time.TotalSeconds;
             Console.WriteLine("Jules: " + Jules + " Time: " + Time.TotalSeconds + " Watt: " + Watt);
-            var microWatts = long.Parse(File.ReadAllText("/sys/class/powercap/intel-rapl/intel-rapl:0/constraint_0_max_power_uw"));
-            PowerLimit = microWatts / 1_000_000.0;
+            try
+            {
+                var microWatts = long.Parse(File.ReadAllText("/sys/class/powercap/intel-rapl/intel-rapl:0/constraint_0_max_power_uw"));
+                PowerLimit = microWatts / 1_000_000.0;
+            }
+            catch (Exception) //might not be permitted
+            {
+                PowerLimit = double.NaN;
+            }
         }
 
-        double GetDoubleFromLines(IEnumerable<string> lines, string selector)
+        static double GetDoubleFromLines(IEnumerable<string> lines, string selector)
         {
             var line = lines.FirstOrDefault(s => s.Contains(selector)).Trim();
             var number = line.Substring(0, line.IndexOf(" "));
