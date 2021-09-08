@@ -88,16 +88,29 @@ namespace VolunteerComputing.ManagementServer.Server
                 // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
                 app.UseHsts();
             }
-
+            var options = new ForwardedHeadersOptions
+            {
+                ForwardedHeaders = Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.All
+            };
+            options.KnownNetworks.Clear();
+            options.KnownProxies.Clear();
             app
                 .UseHttpsRedirection()
                 .UseBlazorFrameworkFiles()
                 .UseStaticFiles()
                 .UseRouting()
+                .UseResponseCompression()
+                .UseForwardedHeaders(options)
+                /*.Use(async (ctx, next) =>
+                {
+                    Console.WriteLine($"ctx.Request.Scheme: {ctx.Request.Scheme}; ctx.Request.Host: {ctx.Request.Host}; ctx.Request.Method: {ctx.Request.Method}");
+                    //ctx.Request.Scheme = "https";
+                    //ctx.Request.Host = new Microsoft.AspNetCore.Http.HostString("localhost:5001");
+                    await next();
+                })*/
                 .UseIdentityServer()
                 .UseAuthentication()
                 .UseAuthorization()
-                .UseResponseCompression()
                 .UseEndpoints(endpoints =>
                 {
                     endpoints.MapRazorPages();

@@ -7,6 +7,7 @@ using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using VolunteerComputing.Shared;
@@ -30,7 +31,11 @@ namespace VolunteerComputing.TaskServer.Services
             this.scopeFactory = scopeFactory;
 
             hubConnection = new HubConnectionBuilder()
-                .WithUrl("https://localhost:5001/tasks")
+                .WithUrl("https://nginx:5001/tasks", o => o.HttpMessageHandlerFactory = m => {
+                    if (m is HttpClientHandler clientHandler)
+                        clientHandler.ServerCertificateCustomValidationCallback += (s, cert, chain, err) => true; //temp
+                    return m;
+                })
                 .AddMessagePackProtocol()
                 .WithAutomaticReconnect()
                 .Build();

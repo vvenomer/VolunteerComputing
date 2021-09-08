@@ -7,6 +7,7 @@ using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
+using System.Net.Http;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using VolunteerComputing.Client.Energy;
@@ -202,7 +203,11 @@ namespace VolunteerComputing.Client
         static async Task<HubConnection> CreateHubConnection()
         {
             var conn = new HubConnectionBuilder()
-                .WithUrl("https://localhost:8080/tasks")
+                .WithUrl("https://localhost:8081/tasks", o => o.HttpMessageHandlerFactory = m => {
+                    if (m is HttpClientHandler clientHandler)
+                        clientHandler.ServerCertificateCustomValidationCallback += (s, cert, chain, err) => true; //temp
+                    return m;
+                })
                 .AddMessagePackProtocol()
                 .WithAutomaticReconnect()
                 .Build();

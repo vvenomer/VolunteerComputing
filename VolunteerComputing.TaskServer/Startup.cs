@@ -47,10 +47,18 @@ namespace VolunteerComputing.TaskServer
             {
                 app.UseDeveloperExceptionPage();
             }
+
+            var options = new ForwardedHeadersOptions
+            {
+                ForwardedHeaders = Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.All
+            };
+            options.KnownNetworks.Clear();
+            options.KnownProxies.Clear();
             app
                 .UseHttpsRedirection()
                 .UseRouting()
                 .UseResponseCompression()
+                .UseForwardedHeaders(options)
                 .UseEndpoints(endpoints =>
                 {
                     endpoints.MapGet("/", async context =>
