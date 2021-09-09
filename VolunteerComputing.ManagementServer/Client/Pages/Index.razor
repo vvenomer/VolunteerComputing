@@ -13,13 +13,14 @@
     <input class="form-control" type="number" @bind="Project.MinAgreeingClients" /><br>
 
     <h3>Packet Types</h3>
-    @foreach (var packetType in packetTypes)
+    @for (int i = 0; i < packetTypes.Count; i++)
     {
-        var localPacketType = packetType;
+        var packetType = packetTypes[i];
+        var locali = i;
         <InputText class="form-control" @bind-Value="packetType.Type" />
         <text>Should aggregate</text>
         <InputCheckbox class="form-check-input" @bind-Value="packetType.Aggregable" />
-        <button class="btn btn-primary" @onchange="() => RemovePacketType(localPacketType)">Remove</button><br>
+        <button class="btn btn-primary" @onchange="() => RemovePacketType(i)">Remove</button><br>
     }
     <button class="btn btn-primary" @onclick="AddPacketType">Add packet type</button><br><br>
 
@@ -187,12 +188,13 @@
         Console.WriteLine("Add task");
         newInputTypes.Add("");
         newOutputTypes.Add("");
+        areZipFiles.Add(false);
         computeTasks.Add(new ComputeTask() { PacketTypes = new List<PacketTypeToComputeTask>() });
     }
 
-    void RemovePacketType(PacketType packetType)
+    void RemovePacketType(int i)
     {
-        packetTypes.Remove(packetType);
+        packetTypes.RemoveAt(i);
     }
 
     void AddInput(int i)
