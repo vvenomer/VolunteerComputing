@@ -7,7 +7,7 @@ services:
             - ./nginx/certs:/etc/nginx/certs
             - ./nginx/conf:/etc/nginx/conf.d
         ports: 
-            - "80:80"
+            - "50000:80"
             - "8081:8081"
             - "5001:5001"
         depends_on:
@@ -23,7 +23,7 @@ services:
             - ./VolunteerComputing.ManagementServer/Server/appsettings.json:/app/appsettings.json
             - ./VolunteerComputing.ManagementServer/Server/appsettings.Development.json:/src/Server/appsettings.Development.json
             - ./VolunteerComputing.ManagementServer/Server/appsettings.Development.json:/app/appsettings.Development.json
-            - ./Upload:/src/Upload
+            - ./Upload:/app/Upload
         #restart: always
         container_name: management_server
         depends_on:
@@ -39,7 +39,7 @@ services:
             - ./VolunteerComputing.TaskServer/appsettings.json:/app/appsettings.json
             - ./VolunteerComputing.TaskServer/appsettings.Development.json:/src/Server/appsettings.Development.json
             - ./VolunteerComputing.TaskServer/appsettings.Development.json:/app/appsettings.Development.json
-            - ./Upload:/src/Upload
+            - ./Upload:/app/Upload
         #restart: always
         container_name: task_server
         depends_on:
@@ -49,8 +49,9 @@ services:
             - database:mssql
     database:
         image: mcr.microsoft.com/mssql/server 
-        #volumes:
-            #- ./db:/var/opt/mssql/
+        user: root
+        volumes:
+            - ./../db:/var/opt/mssql/
         #restart: always
         environment:
             ACCEPT_EULA: Y
