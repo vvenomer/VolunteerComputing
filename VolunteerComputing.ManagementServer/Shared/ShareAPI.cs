@@ -9,7 +9,7 @@ namespace VolunteerComputing.Shared
 {
     public class ShareAPI
     {
-        static readonly string uploadDirectory = @"/home/vvenomer/Desktop/Programowanie/VolunteerComputing/Upload";
+        static readonly string uploadDirectory = @"/src/Upload";
         public static byte[] GetFromShare(string path)
         {
             EnsurePathCreated();

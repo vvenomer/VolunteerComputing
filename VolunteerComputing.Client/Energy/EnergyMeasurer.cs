@@ -134,7 +134,7 @@ namespace VolunteerComputing.Client.Energy
                 .Where(l => !string.IsNullOrEmpty(l))
                 .Select(x => x
                     .Split(",")
-                    .Select(s => double.Parse(s, CultureInfo.InvariantCulture))
+                    .Select(s => double.Parse(s, NumberFormatInfo.InvariantInfo))
                     .ToList())
                 .ToList();
             var averaged = Enumerable.Range(0, 4)

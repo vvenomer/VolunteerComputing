@@ -1,0 +1,61 @@
+﻿@page "/devices"
+@using VolunteerComputing.Shared.Models
+@inject HttpClient Http
+<h3>Devices</h3>
+
+<table>
+    <thead>
+        <tr>
+            <th>Id</th>
+            <th>Base CPU consumption</th>
+            <th>Base GPU consumption</th>
+            @foreach (var computeTaskId in computeTaskIds)
+            {
+                <th>Compute task @computeTaskId</th>
+            }
+        </tr>
+    </thead>
+    <tbody>
+
+        @foreach (var device in devices)
+        {
+            <tr>
+                <td>@device.Id</td>
+                <td>@device.BaseCpuEnergyConsumption</td>
+                <td>@device.BaseGpuEnergyConsumption</td>
+                @for (int i = 0; i < computeTaskIds.Count; i++)
+                {
+                    <td>
+                        @foreach (var stat in device.DeviceStats.Where(x => x.ComputeTaskId == i))
+                        {
+                            @PrintStatSummary(stat)<br>
+                        }
+                    </td>
+                }
+                <td></td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+
+@code {
+    List<DeviceData> devices = new List<DeviceData>();
+    List<int> computeTaskIds = new List<int>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        devices = await Http.GetFromJsonAsync<List<DeviceData>>("api/Devices");
+        computeTaskIds = devices
+            .SelectMany(d => d.DeviceStats
+                    .Select(s => s.ComputeTaskId))
+            .Distinct()
+            .OrderBy(x => x)
+            .ToList();
+    }
+
+    string PrintStatSummary(DeviceStat deviceStat)
+    {
+        return $"{(deviceStat.IsCpu ? "CPU" : "GPU")} time: {deviceStat.TimeSum}, energy: {deviceStat.EnergySum}, count: {deviceStat.Count}";
+    }
+}
