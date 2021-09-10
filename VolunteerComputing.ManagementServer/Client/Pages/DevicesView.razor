@@ -3,7 +3,7 @@
 @inject HttpClient Http
 <h3>Devices</h3>
 
-<table>
+<table class="table table-striped">
     <thead>
         <tr>
             <th>Id</th>
@@ -26,13 +26,12 @@
                 @for (int i = 0; i < computeTaskIds.Count; i++)
                 {
                     <td>
-                        @foreach (var stat in device.DeviceStats.Where(x => x.ComputeTaskId == i))
+                        @foreach (var stat in device.DeviceStats.Where(x => x.ComputeTaskId == computeTaskIds[i]))
                         {
                             @PrintStatSummary(stat)<br>
                         }
                     </td>
                 }
-                <td></td>
             </tr>
         }
     </tbody>
@@ -48,7 +47,7 @@
         devices = await Http.GetFromJsonAsync<List<DeviceData>>("api/Devices");
         computeTaskIds = devices
             .SelectMany(d => d.DeviceStats
-                    .Select(s => s.ComputeTaskId))
+                    .Select(s => s.ComputeTaskId??-1))
             .Distinct()
             .OrderBy(x => x)
             .ToList();
