@@ -38,19 +38,23 @@ namespace VolunteerComputing.Client
                 $"{(isIntel ? " with Intel CPU" : "")}{(isCuda ? " with Nvidia GPU" : "")}");
 
             if (isCuda && Storage.GpuEnergyToolPath == null)
+            {
                 Storage.GpuEnergyToolPath = FindNvidiaSmiPath(isWindows);
+                Storage.HasSentInitMeasurements = false;
+            }
             if (isIntel && Storage.CpuEnergyToolPath == null)
             {
                 if(isWindows)
                     Storage.CpuEnergyToolPath = await FindPowerLogPath();
                 else
                     Storage.CpuEnergyToolPath = FindPerfPath();
+                Storage.HasSentInitMeasurements = false;
             }
 
             if ((isIntel && Storage.CpuEnergyToolPath == null) || (isCuda && Storage.GpuEnergyToolPath == null))
                 return;
 
-            double cpuEnergy = 0, gpuEnergy = 0;
+            double? cpuEnergy = 0, gpuEnergy = 0;
             if(!Storage.HasSentInitMeasurements)
             {
                 Console.WriteLine("Running initial energy consumption test");
@@ -62,9 +66,9 @@ namespace VolunteerComputing.Client
                     initTestTime);
 
                 var (cpuEnergyData, gpuEnergyData) = await energyDataAwaitable;
-                (cpuEnergy, gpuEnergy) = (cpuEnergyData.Watt, gpuEnergyData.Watt);
-                Console.WriteLine($"Cpu uses {cpuEnergy:0.00}/{cpuEnergyData.PowerLimit} W, " +
-                    $"while Gpu uses {gpuEnergy:0.00}/{gpuEnergyData.PowerLimit} W");
+                (cpuEnergy, gpuEnergy) = (cpuEnergyData?.Watt, gpuEnergyData?.Watt);
+                Console.WriteLine($"Cpu uses {cpuEnergy?.ToString("0.00") ?? "N/A"}/{cpuEnergyData?.PowerLimit.ToString() ?? "N/A"} W, " +
+                    $"while Gpu uses {gpuEnergy?.ToString("0.00") ?? "N/A"}/{gpuEnergyData?.PowerLimit.ToString() ?? "N/A"} W");
             }
 
             var conn = await CreateHubConnection();
@@ -84,8 +88,8 @@ namespace VolunteerComputing.Client
                 IsWindows = isWindows,
                 CpuAvailable = isIntel,
                 GpuAvailable = isCuda,
-                BaseCpuEnergyConsumption = cpuEnergy,
-                BaseGpuEnergyConsumption = gpuEnergy
+                BaseCpuEnergyConsumption = cpuEnergy??-1,
+                BaseGpuEnergyConsumption = gpuEnergy??-1
             };
 
             var id = await conn.InvokeAsync<int>("SendDeviceData", data);
