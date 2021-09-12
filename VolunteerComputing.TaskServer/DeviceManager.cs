@@ -20,7 +20,10 @@ namespace VolunteerComputing.TaskServer
 
         public static async Task RefreshDevices(IEnumerable<DeviceData> devices, VolunteerComputingContext context)
         {
-            await Task.WhenAll(devices.Select(async d => await context.Entry(d).ReloadAsync()));
+            foreach (var device in devices)
+            {
+                await context.Entry(device).ReloadAsync();
+            }
         }
 
         public static DeviceWithStat ChooseDevice(IEnumerable<DeviceData> aviableDevices, ComputeTask computeTask)
