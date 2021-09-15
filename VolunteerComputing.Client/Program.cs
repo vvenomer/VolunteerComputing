@@ -53,7 +53,7 @@ namespace VolunteerComputing.Client
             if ((isIntel && Storage.CpuEnergyToolPath == null) || (isCuda && Storage.GpuEnergyToolPath == null))
                 return;
 
-            double? cpuEnergy = 0, gpuEnergy = 0;
+            double? cpuEnergy = -1, gpuEnergy = -1;
             if(!Storage.HasSentInitMeasurements)
             {
                 Console.WriteLine("Running initial energy consumption test");
@@ -98,7 +98,7 @@ namespace VolunteerComputing.Client
                 Storage.Restart();
                 return;
             }
-            if (cpuEnergy != 0 || gpuEnergy != 0)
+            if (cpuEnergy != -1 || gpuEnergy != -1)
                 Storage.HasSentInitMeasurements = true;
             Storage.Id = id;
             while (true) await Task.Delay(500);
@@ -322,7 +322,7 @@ namespace VolunteerComputing.Client
                     energyData = await EnergyMeasurer.RunNvidiaSmi(Storage.GpuEnergyToolPath, calculate);
 
                 var time = stopwatch.Elapsed;
-                if (!File.Exists(outputFilePath) || new Random().Next() % simulateErrorEvery == 0) //TEMP - should be removed in production
+                if (!File.Exists(outputFilePath))
                 {
                     Console.WriteLine($"Something went wrong after {time} using {energyData.Watt:0.00} W energy on {device}");
                     await connection.SendAsync("CalculationsFailed", useCpu);
@@ -339,7 +339,7 @@ namespace VolunteerComputing.Client
             {
                 Console.WriteLine(ex);
                 await connection.SendAsync("CalculationsFailed", useCpu);
-                throw;
+                return;
             }
         }
 

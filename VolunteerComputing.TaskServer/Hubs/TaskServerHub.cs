@@ -107,13 +107,14 @@ namespace VolunteerComputing.TaskServer.Hubs
         {
             if (device.Id != 0)
             {
-                var newBaseGpuEnergyConsumption = device.BaseGpuEnergyConsumption;
-                var newBaseCpuEnergyConsumption = device.BaseCpuEnergyConsumption;
-                device = dbContext.Devices.Find(device.Id);
-                if (newBaseCpuEnergyConsumption != -1)
-                    device.BaseCpuEnergyConsumption = newBaseCpuEnergyConsumption;
-                if (newBaseGpuEnergyConsumption != -1)
-                    device.BaseGpuEnergyConsumption = newBaseGpuEnergyConsumption;
+                var dbdevice = dbContext.Devices.Find(device.Id);
+                if (device.BaseCpuEnergyConsumption != -1)
+                    dbdevice.BaseCpuEnergyConsumption = device.BaseCpuEnergyConsumption;
+                if (device.BaseGpuEnergyConsumption != -1)
+                    dbdevice.BaseGpuEnergyConsumption = device.BaseGpuEnergyConsumption;
+                dbdevice.CpuAvailable = device.CpuAvailable;
+                dbdevice.GpuAvailable = device.GpuAvailable;
+                device = dbdevice;
             }
 
             if (device == null)
