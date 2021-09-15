@@ -18,7 +18,7 @@ namespace VolunteerComputing.ManagementServer.Server.Hubs
         static int finished = 0;
         readonly object connectedServersLocker = new();
         readonly object finishedLocker = new();
-        readonly HashSet<string> taskServers = new();
+        readonly Dictionary<string, string> taskServers = new();
         public const string taskServerId = "t";
         public const string clientId = "c";
 
@@ -32,32 +32,43 @@ namespace VolunteerComputing.ManagementServer.Server.Hubs
             return base.OnConnectedAsync();
         }
 
-        public async Task JoinTaskServers()
+        public async Task JoinTaskServers(string uid)
         {
             lock (connectedServersLocker)
             {
                 connectedServers++;
             }
             var id = Context.ConnectionId;
-            taskServers.Add(id);
+            Console.WriteLine($"Task server joined with connection id: {id}; id: {uid}");
+
+            var (key, _) = taskServers.FirstOrDefault(kv => kv.Value == uid);
+            if (key != null)
+                taskServers.Remove(key);
+
+            taskServers[id] = uid;
+
             await Groups.AddToGroupAsync(id, taskServerId);
         }
 
         public override async Task OnDisconnectedAsync(Exception exception)
         {
             var connectionId = Context.ConnectionId;
-            if(taskServers.Contains(connectionId))
+            if (taskServers.ContainsKey(connectionId))
             {
+                Console.WriteLine($"Task {connectionId} server lost connection: {exception?.Message}");
                 lock (connectedServersLocker)
                 {
                     connectedServers--;
                 }
                 taskServers.Remove(connectionId);
             }
+            else
+                Console.WriteLine($"Client {connectionId} lost connection: {exception?.Message}");
         }
 
         public async Task JoinClients()
         {
+            Console.WriteLine($"Client {Context.ConnectionId} joined");
             await Groups.AddToGroupAsync(Context.ConnectionId, clientId);
         }
 
@@ -66,7 +77,7 @@ namespace VolunteerComputing.ManagementServer.Server.Hubs
             return await dbContext.Packets.CountAsync(p => p.TypeId == packetTypeId);
         }
 
-        public async Task ReportFinished()
+        public async Task ReportFinished() //to do - verify it is task server
         {
             lock (finishedLocker)
             {
@@ -75,6 +86,7 @@ namespace VolunteerComputing.ManagementServer.Server.Hubs
             }
             if (finished == connectedServers)
             {
+                finished = 0;
                 Console.WriteLine("Saving result");
                 var packets = dbContext.Packets.Include(x => x.Type).ThenInclude(p => p.Project).ToList();
 
