@@ -20,8 +20,8 @@ namespace VolunteerComputing.Client.Energy
 
         public static async Task<(EnergyData, NvidiaSmiEnergyData)> RunInitMeasurement(string gpuToolPath, string cpuToolPath, bool isWindows, TimeSpan time)
         {
-            var energyDataAwaitable = isWindows ? await RunPowerLog(cpuToolPath, time) : await RunPerf(cpuToolPath, time);
-            var gpuEnergyDataAwaitable = RunNvidiaSmi(gpuToolPath, time);
+            var gpuEnergyDataAwaitable = gpuToolPath == null ? Task.FromResult((NvidiaSmiEnergyData)null) : RunNvidiaSmi(gpuToolPath, time);
+            var energyDataAwaitable = cpuToolPath == null ? null : isWindows ? await RunPowerLog(cpuToolPath, time) : await RunPerf(cpuToolPath, time);
 
             return (energyDataAwaitable, await gpuEnergyDataAwaitable);
         }
@@ -134,7 +134,7 @@ namespace VolunteerComputing.Client.Energy
                 .Where(l => !string.IsNullOrEmpty(l))
                 .Select(x => x
                     .Split(",")
-                    .Select(s => double.Parse(s, CultureInfo.InvariantCulture))
+                    .Select(s => double.Parse(s, NumberFormatInfo.InvariantInfo))
                     .ToList())
                 .ToList();
             var averaged = Enumerable.Range(0, 4)

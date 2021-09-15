@@ -37,19 +37,23 @@ namespace VolunteerComputing.Client
                 $"{(isIntel ? " with Intel CPU" : "")}{(isCuda ? " with Nvidia GPU" : "")}");
 
             if (isCuda && Storage.GpuEnergyToolPath == null)
+            {
                 Storage.GpuEnergyToolPath = FindNvidiaSmiPath(isWindows);
+                Storage.HasSentInitMeasurements = false;
+            }
             if (isIntel && Storage.CpuEnergyToolPath == null)
             {
                 if(isWindows)
                     Storage.CpuEnergyToolPath = await FindPowerLogPath();
                 else
                     Storage.CpuEnergyToolPath = FindPerfPath();
+                Storage.HasSentInitMeasurements = false;
             }
 
             if ((isIntel && Storage.CpuEnergyToolPath == null) || (isCuda && Storage.GpuEnergyToolPath == null))
                 return;
 
-            double cpuEnergy = 0, gpuEnergy = 0;
+            double? cpuEnergy = -1, gpuEnergy = -1;
             if(!Storage.HasSentInitMeasurements)
             {
                 Console.WriteLine("Running initial energy consumption test");
@@ -61,9 +65,9 @@ namespace VolunteerComputing.Client
                     initTestTime);
 
                 var (cpuEnergyData, gpuEnergyData) = await energyDataAwaitable;
-                (cpuEnergy, gpuEnergy) = (cpuEnergyData.Watt, gpuEnergyData.Watt);
-                Console.WriteLine($"Cpu uses {cpuEnergy:0.00}/{cpuEnergyData.PowerLimit} W, " +
-                    $"while Gpu uses {gpuEnergy:0.00}/{gpuEnergyData.PowerLimit} W");
+                (cpuEnergy, gpuEnergy) = (cpuEnergyData?.Watt, gpuEnergyData?.Watt);
+                Console.WriteLine($"Cpu uses {cpuEnergy?.ToString("0.00") ?? "N/A"}/{cpuEnergyData?.PowerLimit.ToString() ?? "N/A"} W, " +
+                    $"while Gpu uses {gpuEnergy?.ToString("0.00") ?? "N/A"}/{gpuEnergyData?.PowerLimit.ToString() ?? "N/A"} W");
             }
 
             var conn = await CreateHubConnection();
@@ -83,8 +87,8 @@ namespace VolunteerComputing.Client
                 IsWindows = isWindows,
                 CpuAvailable = isIntel,
                 GpuAvailable = isCuda,
-                BaseCpuEnergyConsumption = cpuEnergy,
-                BaseGpuEnergyConsumption = gpuEnergy
+                BaseCpuEnergyConsumption = cpuEnergy??-1,
+                BaseGpuEnergyConsumption = gpuEnergy??-1
             };
 
             var id = await conn.InvokeAsync<int>("SendDeviceData", data);
@@ -94,7 +98,7 @@ namespace VolunteerComputing.Client
                 Storage.Restart();
                 return;
             }
-            if (cpuEnergy != 0 || gpuEnergy != 0)
+            if (cpuEnergy != -1 || gpuEnergy != -1)
                 Storage.HasSentInitMeasurements = true;
             Storage.Id = id;
             while (true) await Task.Delay(500);
@@ -318,7 +322,7 @@ namespace VolunteerComputing.Client
                     energyData = await EnergyMeasurer.RunNvidiaSmi(Storage.GpuEnergyToolPath, calculate);
 
                 var time = stopwatch.Elapsed;
-                if (!File.Exists(outputFilePath) || new Random().Next() % simulateErrorEvery == 0) //TEMP - should be removed in production
+                if (!File.Exists(outputFilePath))
                 {
                     Console.WriteLine($"Something went wrong after {time} using {energyData.Watt:0.00} W energy on {device}");
                     await connection.SendAsync("CalculationsFailed", useCpu);
@@ -335,7 +339,7 @@ namespace VolunteerComputing.Client
             {
                 Console.WriteLine(ex);
                 await connection.SendAsync("CalculationsFailed", useCpu);
-                throw;
+                return;
             }
         }
 

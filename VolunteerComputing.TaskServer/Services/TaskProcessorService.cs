@@ -29,11 +29,28 @@ namespace VolunteerComputing.TaskServer.Services
             this.taskServerHub = taskServerHub;
             this.scopeFactory = scopeFactory;
 
+            Id = Guid.NewGuid().ToString();
+
             hubConnection = new HubConnectionBuilder()
                 .WithUrl("https://localhost:5001/tasks")
                 .AddMessagePackProtocol()
                 .WithAutomaticReconnect()
                 .Build();
+            hubConnection.Closed += (ex) =>
+            {
+                Console.WriteLine($"Connection closed. Error: {ex.Message}");
+                return Task.CompletedTask;
+            };
+            hubConnection.Reconnecting += (ex) =>
+            {
+                Console.WriteLine($"Connection reconnecting. Error: {ex.Message}");
+                return Task.CompletedTask;
+            };
+            hubConnection.Reconnected += async (message) =>
+            {
+                Console.WriteLine($"Connection reconnected. Message: {message}");
+                await hubConnection.InvokeAsync("JoinTaskServers", Id);
+            };
             hubConnection.On("PacketAdded", () => ShouldStartWork = true);
             hubConnection.On("InformFinished", async () =>
             {
@@ -53,15 +70,14 @@ namespace VolunteerComputing.TaskServer.Services
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine(ex);
+                    Console.WriteLine(ex.Message);
                     await Task.Delay(1000, stoppingToken);
                 }
                 if (stoppingToken.IsCancellationRequested)
                     return;
             } while (true);
             Console.WriteLine("Connected");
-            Id = hubConnection.ConnectionId;
-            await hubConnection.InvokeAsync("JoinTaskServers", cancellationToken: stoppingToken);
+            await hubConnection.InvokeAsync("JoinTaskServers", Id, cancellationToken: stoppingToken);
 
             while (!stoppingToken.IsCancellationRequested)
             {
@@ -150,7 +166,7 @@ namespace VolunteerComputing.TaskServer.Services
                         return null;
                     }
                     await Task.Delay(2000, stoppingToken); //wait for new devices
-                    break;
+                    continue;
                 }
 
                 return bundles;

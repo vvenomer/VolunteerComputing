@@ -106,7 +106,16 @@ namespace VolunteerComputing.TaskServer.Hubs
         public async Task<int> SendDeviceData(DeviceData device)
         {
             if (device.Id != 0)
-                device = dbContext.Devices.Find(device.Id);
+            {
+                var dbdevice = dbContext.Devices.Find(device.Id);
+                if (device.BaseCpuEnergyConsumption != -1)
+                    dbdevice.BaseCpuEnergyConsumption = device.BaseCpuEnergyConsumption;
+                if (device.BaseGpuEnergyConsumption != -1)
+                    dbdevice.BaseGpuEnergyConsumption = device.BaseGpuEnergyConsumption;
+                dbdevice.CpuAvailable = device.CpuAvailable;
+                dbdevice.GpuAvailable = device.GpuAvailable;
+                device = dbdevice;
+            }
 
             if (device == null)
                 return -1;

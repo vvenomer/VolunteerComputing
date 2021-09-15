@@ -1,0 +1,89 @@
+﻿@page "/devices"
+@using VolunteerComputing.Shared.Models
+@inject HttpClient Http
+<h3>Devices</h3>
+
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Id</th>
+            <th>Base CPU consumption</th>
+            <th>Base GPU consumption</th>
+            @foreach (var computeTaskId in computeTaskIds)
+            {
+                <th>Compute task @computeTaskId</th>
+            }
+        </tr>
+    </thead>
+    <tbody>
+
+        @foreach (var device in devices)
+        {
+            <tr>
+                <td>@device.Id</td>
+                <td>@device.BaseCpuEnergyConsumption</td>
+                <td>@device.BaseGpuEnergyConsumption</td>
+                @for (int i = 0; i < computeTaskIds.Count; i++)
+                {
+                    <td>
+                        @foreach (var stat in device.DeviceStats.Where(x => x.ComputeTaskId == computeTaskIds[i]))
+                        {
+                            @PrintStatSummary(stat)<br>
+                        }
+                    </td>
+                }
+            </tr>
+        }
+    </tbody>
+</table>
+
+<button class="btn btn-primary" @onclick="Refresh">Refresh stats</button>
+<button class="btn btn-primary" @onclick="DeleteStats">Delete stats</button>
+<button class="btn btn-primary" @onclick="DeleteDevices">Delete devices</button>
+@deleteStatus
+
+@code {
+    List<DeviceData> devices = new List<DeviceData>();
+    List<int> computeTaskIds = new List<int>();
+    string deleteStatus = "";
+    protected override async Task OnInitializedAsync()
+    {
+        await Refresh();
+    }
+
+    async Task Refresh()
+    {
+        devices = await Http.GetFromJsonAsync<List<DeviceData>>("api/Devices");
+        computeTaskIds = devices
+            .SelectMany(d => d.DeviceStats
+                    .Select(s => s.ComputeTaskId ?? -1))
+            .Distinct()
+            .OrderBy(x => x)
+            .ToList();
+    }
+
+    async Task DeleteStats()
+    {
+        deleteStatus = "Deleting stats...";
+        var result = await Http.DeleteAsync("api/Devices/DeleteStats");
+        if (result.IsSuccessStatusCode)
+            deleteStatus = "Deleted stats";
+        else
+            deleteStatus = $"Error deleting stats: {result.StatusCode}" + (result.ReasonPhrase is null ? "" : $", reason: {result.ReasonPhrase}");
+    }
+
+    async Task DeleteDevices()
+    {
+        deleteStatus = "Deleting devices...";
+        var result = await Http.DeleteAsync("api/Devices");
+        if (result.IsSuccessStatusCode)
+            deleteStatus = "Deleted devices";
+        else
+            deleteStatus = $"Error deleting devices: {result.StatusCode}" + (result.ReasonPhrase is null ? "" : $", reason: {result.ReasonPhrase}");
+    }
+
+    string PrintStatSummary(DeviceStat deviceStat)
+    {
+        return $"{(deviceStat.IsCpu ? "CPU" : "GPU")} time: {deviceStat.TimeSum}, energy: {deviceStat.EnergySum}, count: {deviceStat.Count}";
+    }
+}
