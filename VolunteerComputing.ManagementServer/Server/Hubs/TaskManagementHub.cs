@@ -111,7 +111,7 @@ namespace VolunteerComputing.ManagementServer.Server.Hubs
                 {
                     ShareAPI.RemoveFromShare(packet.Data);
                 }
-                dbContext.Packets.RemoveRange(packets); //todo: delete from share
+                dbContext.Packets.RemoveRange(packets);
                 await dbContext.SaveChangesAsync();
                 Console.WriteLine("Saved");
 
