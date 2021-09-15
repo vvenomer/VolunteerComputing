@@ -7,6 +7,7 @@
         public double TimeSum { get; set; }
         public double EnergySum { get; set; }
         public bool IsCpu { get; set; } //or Gpu
+        public int ComputeTaskId { get; set; }
         public ComputeTask ComputeTask { get; set; }
         public DeviceData DeviceData { get; set; }
 
