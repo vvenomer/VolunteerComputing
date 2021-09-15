@@ -58,7 +58,7 @@ Minimum number of agreeing volunteer clients to consider result true: @project.M
 </table>
 @foreach (var (typeName, packetCount) in CountDictionary)
 {
-    var style = $"width: {packetCount * 100 / PacketsCount}%";
+    var style = $"width: {packetCount * 100 / (double)PacketsCount}%";
     @typeName
     <div class="progress">
         <div class="progress-bar" role="progressbar" style="@style">@packetCount</div>
