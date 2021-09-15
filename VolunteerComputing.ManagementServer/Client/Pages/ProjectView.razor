@@ -4,6 +4,8 @@
 @using Microsoft.AspNetCore.SignalR.Client
 @inject HttpClient Http
 @inject NavigationManager NavigationManager
+@implements IAsyncDisposable
+
 <h3>Project @project.Name</h3>
 Minimum number of agreeing volunteer clients to consider result true: @project.MinAgreeingClients
 <select class="form-control" @bind="project.ChoosingStrategy">
@@ -14,7 +16,8 @@ Minimum number of agreeing volunteer clients to consider result true: @project.M
     }
 </select>
 <input class="form-control" type="number" @bind="project.ChanceToUseNewDevice" />
-<button class="btn btn-primary" @onclick="UpdateStrategy">Update Strategy</button><br>
+<button class="btn btn-primary" @onclick="UpdateStrategy">Update Strategy</button>
+<br>
 @updateStrategyStatus
 <br>
 
@@ -71,9 +74,9 @@ Results (UTC):
     {
 
         var href = $"api/Results?fileId={result.FileId}&projectName={project.Name}";
-    <li>
-        <a href="@href">@result.CreatedAt</a>, time: @TimeSpan.FromSeconds(result.SecondsElapsed)
-    </li>
+        <li>
+            <a href="@href">@result.CreatedAt</a>, time: @TimeSpan.FromSeconds(result.SecondsElapsed)
+        </li>
     }
 </ul>
 
@@ -134,9 +137,18 @@ Results (UTC):
             var sum = 0;
             foreach (var packetType in this.project.PacketTypes)
             {
-                var count = await HubConnection.InvokeAsync<int>("CountPacketsByType", packetType.Id);
-                CountDictionary[packetType.Type] = count;
-                sum += count;
+                try
+                {
+                    var count = await HubConnection.InvokeAsync<int>("CountPacketsByType", packetType.Id);
+
+                    CountDictionary[packetType.Type] = count;
+                    sum += count;
+
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error happened: {ex.Message}");
+                }
             }
             if (sum == 0)
                 sum = 1;
@@ -159,12 +171,18 @@ Results (UTC):
         if (result.IsSuccessStatusCode)
             NavigationManager.NavigateTo("projects");
     }
-
+ 
     async Task DeletePackets()
     {
         deletePacketsStatus = "Deleting packets...";
         var result = await Http.DeleteAsync($"api/Packets/DeleteByProject/{Id}");
         if (result.IsSuccessStatusCode)
             deletePacketsStatus = "Deleted packets.";
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await HubConnection.DisposeAsync();
+        timer?.Dispose();
     }
 }

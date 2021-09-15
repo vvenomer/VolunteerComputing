@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.IO;
+using System.Globalization;
 
 namespace VolunteerComputing.Client.Energy
 {
@@ -17,7 +18,6 @@ namespace VolunteerComputing.Client.Energy
             Jules = GetDoubleFromLines(splited, "energy-cores");
             Time = TimeSpan.FromSeconds(GetDoubleFromLines(splited, "time elapsed"));
             Watt = Jules / Time.TotalSeconds;
-            Console.WriteLine("Jules: " + Jules + " Time: " + Time.TotalSeconds + " Watt: " + Watt);
             try
             {
                 var microWatts = long.Parse(File.ReadAllText("/sys/class/powercap/intel-rapl/intel-rapl:0/constraint_0_max_power_uw"));
@@ -33,7 +33,7 @@ namespace VolunteerComputing.Client.Energy
         {
             var line = lines.FirstOrDefault(s => s.Contains(selector)).Trim();
             var number = line.Substring(0, line.IndexOf(" "));
-            return double.Parse(number.Replace(',', '.'));
+            return double.Parse(number.Replace(',', '.'), NumberFormatInfo.InvariantInfo);
         }
     }
 }

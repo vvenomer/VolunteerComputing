@@ -20,7 +20,7 @@
         <InputText class="form-control" @bind-Value="packetType.Type" />
         <text>Should aggregate</text>
         <InputCheckbox class="form-check-input" @bind-Value="packetType.Aggregable" />
-        <button class="btn btn-primary" @onchange="() => RemovePacketType(i)">Remove</button><br>
+        <button class="btn btn-primary" @onclick="() => RemovePacketType(locali)">Remove</button><br>
     }
     <button class="btn btn-primary" @onclick="AddPacketType">Add packet type</button><br><br>
 
@@ -67,8 +67,9 @@
         <text>Is .zip file?</text><input class="form-check-input" type="checkbox" @bind="areZipFiles[locali]" />
         @if (areZipFiles[locali])
         {
-            <text>Exe name:</text><InputText @bind-Value="computeTask.ExeFilename" />
+            <text>Exe name:</text><InputText @bind-Value="computeTask.ExeFilename" /><br>
         }
+        <button class="btn btn-primary" @onclick="() => RemoveComputeTask(locali)">Remove</button><br>
         <br><br>
     }
     <button class="btn btn-primary" @onclick="AddComputeTask">Add compute task</button><br>
@@ -88,19 +89,19 @@
 </EditForm>
 @code
 {
-    List<ComputeTask> computeTasks = new List<ComputeTask>();
-    List<PacketType> packetTypes = new List<PacketType>();
-    List<string> newInputTypes = new List<string>();
-    List<string> newOutputTypes = new List<string>();
-    List<bool> areZipFiles = new List<bool>();
-    string packetType = "";
-    string packetData = "";
-    Project Project { get; set; } = new Project() { MinAgreeingClients = 1, ChanceToUseNewDevice = 0.3, ChoosingStrategy = ChoosingStrategy.Energy };
-    string saveProjectStatus = "";
-    string sendPacketStatus = "";
-    long maxSize = 1024 * 1024;
+        List<ComputeTask> computeTasks = new List<ComputeTask>();
+        List<PacketType> packetTypes = new List<PacketType>();
+        List<string> newInputTypes = new List<string>();
+        List<string> newOutputTypes = new List<string>();
+        List<bool> areZipFiles = new List<bool>();
+        string packetType = "";
+        string packetData = "";
+        Project Project { get; set; } = new Project() { MinAgreeingClients = 1, ChanceToUseNewDevice = 0.3, ChoosingStrategy = ChoosingStrategy.Energy };
+        string saveProjectStatus = "";
+        string sendPacketStatus = "";
+        long maxSize = 1024 * 1024;
 
-    protected override async Task OnInitializedAsync()
+        protected override async Task OnInitializedAsync()
     {
         Project.Name = "collatz";
 
@@ -180,12 +181,11 @@
 
     void AddPacketType()
     {
-        Console.WriteLine("Add packet");
         packetTypes.Add(new PacketType());
     }
+
     void AddComputeTask()
     {
-        Console.WriteLine("Add task");
         newInputTypes.Add("");
         newOutputTypes.Add("");
         areZipFiles.Add(false);
@@ -195,6 +195,14 @@
     void RemovePacketType(int i)
     {
         packetTypes.RemoveAt(i);
+    }
+
+    void RemoveComputeTask(int i)
+    {
+        newInputTypes.RemoveAt(i);
+        newOutputTypes.RemoveAt(i);
+        areZipFiles.RemoveAt(i);
+        computeTasks.RemoveAt(i);
     }
 
     void AddInput(int i)
