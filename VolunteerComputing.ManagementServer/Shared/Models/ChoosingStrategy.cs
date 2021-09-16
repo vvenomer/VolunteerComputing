@@ -10,6 +10,8 @@ namespace VolunteerComputing.Shared.Models
     {
         Energy,
         Speed,
-        Random
+        Random,
+        Energy80CutOff,
+        Energy60CutOff
     }
 }

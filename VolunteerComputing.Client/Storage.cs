@@ -88,7 +88,7 @@ namespace VolunteerComputing.Client
                 }
             }
             else
-                userData = new UserData();
+                userData ??= new UserData();
         }
 
         static void SaveUserData()
