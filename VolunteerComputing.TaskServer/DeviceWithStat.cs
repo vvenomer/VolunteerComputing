@@ -1,8 +1,9 @@
-﻿using VolunteerComputing.Shared.Models;
+﻿using System;
+using VolunteerComputing.Shared.Models;
 
 namespace VolunteerComputing.TaskServer
 {
-    public class DeviceWithStat
+    public class DeviceWithStat : IComparable<DeviceWithStat>, IEquatable<DeviceWithStat>
     {
         public DeviceWithStat(DeviceData deviceData, bool isCpu, DeviceStat stat)
         {
@@ -31,5 +32,26 @@ namespace VolunteerComputing.TaskServer
         public double SpeedEfficiency { get; }
         public double EnergyEfficiency { get; }
         public double EnergyWithoutTime { get; }
+
+        public int CompareTo(DeviceWithStat other)
+        {
+            return EnergyEfficiency.CompareTo(other.EnergyEfficiency);
+        }
+
+        public bool Equals(DeviceWithStat other)
+        {
+            return Device.Id == other.Device.Id
+                && IsCpu == other.IsCpu;
+        }
+
+        public override bool Equals(object obj)
+        {
+            return Equals(obj as DeviceWithStat);
+        }
+
+        public override int GetHashCode()
+        {
+            return HashCode.Combine(Device.Id, IsCpu);
+        }
     }
 }

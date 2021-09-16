@@ -15,8 +15,12 @@ namespace VolunteerComputing.TaskServer
         {
             [ChoosingStrategy.Energy] = ChooseDeviceBasedOnEnergy,
             [ChoosingStrategy.Speed] = ChooseDeviceBasedOnSpeed,
-            [ChoosingStrategy.Random] = ChooseDeviceRandom
+            [ChoosingStrategy.Random] = ChooseDeviceRandom,
+            [ChoosingStrategy.Energy60CutOff] = ChooseDeviceBasedOnEnergyWithCutOff60,
+            [ChoosingStrategy.Energy80CutOff] = ChooseDeviceBasedOnEnergyWithCutOff80,
         };
+
+        static readonly SortedSet<DeviceWithStat> AllDevices = new();
 
         public static async Task RefreshDevices(IEnumerable<DeviceData> devices, VolunteerComputingContext context)
         {
@@ -51,6 +55,37 @@ namespace VolunteerComputing.TaskServer
                 return devices
                     .OrderByDescending(d => d.EnergyEfficiency)
                     .FirstOrDefault();
+            }
+        }
+
+        static DeviceWithStat ChooseDeviceBasedOnEnergyWithCutOff60(IEnumerable<DeviceWithStat> devices, double chanceToUseNewDevice)
+            => ChooseDeviceBasedOnEnergyWithCutOff(devices, chanceToUseNewDevice, 0.6);
+        static DeviceWithStat ChooseDeviceBasedOnEnergyWithCutOff80(IEnumerable<DeviceWithStat> devices, double chanceToUseNewDevice)
+            => ChooseDeviceBasedOnEnergyWithCutOff(devices, chanceToUseNewDevice, 0.8);
+
+        static DeviceWithStat ChooseDeviceBasedOnEnergyWithCutOff(IEnumerable<DeviceWithStat> devices, double chanceToUseNewDevice, double cutOff)
+        {
+            foreach (var device in devices.Where(d => d.EnergyEfficiency > 0))
+            {
+                if(AllDevices.Contains(device))
+                    AllDevices.Remove(device);
+                AllDevices.Add(device);
+            }
+
+            if (devices.Any(d => d.EnergyEfficiency == 0) && devices.Any(d => d.EnergyEfficiency > 0) && random.NextDouble() < chanceToUseNewDevice)
+            {
+                //there are some devices already checked and some new ones - try new one
+                return devices
+                    .FirstOrDefault(d => d.EnergyEfficiency == 0);
+            }
+            else
+            {
+                var allDevicesCount = AllDevices.Count;
+                var exclude = allDevicesCount - (int)Math.Ceiling(allDevicesCount * cutOff);
+                var toExclude = AllDevices.TakeLast(exclude).ToList();
+                return devices
+                    .OrderByDescending(d => d.EnergyEfficiency)
+                    .FirstOrDefault(d => !toExclude.Contains(d));
             }
         }
 
