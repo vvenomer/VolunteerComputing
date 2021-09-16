@@ -38,23 +38,31 @@ namespace VolunteerComputing.Client
 
             if (isCuda && Storage.GpuEnergyToolPath == null)
             {
+                Console.WriteLine("Looking for nvidia-smi path");
                 Storage.GpuEnergyToolPath = FindNvidiaSmiPath(isWindows);
                 Storage.HasSentInitMeasurements = false;
             }
             if (isIntel && Storage.CpuEnergyToolPath == null)
             {
-                if(isWindows)
+                if (isWindows)
+                {
+                    Console.WriteLine("Looking for PowerLog path");
                     Storage.CpuEnergyToolPath = await FindPowerLogPath();
+                }
                 else
+                {
+                    Console.WriteLine("Looking for perf path");
                     Storage.CpuEnergyToolPath = FindPerfPath();
+                }
                 Storage.HasSentInitMeasurements = false;
             }
 
             if ((isIntel && Storage.CpuEnergyToolPath == null) || (isCuda && Storage.GpuEnergyToolPath == null))
                 return;
+            Console.WriteLine("Found necessary tools");
 
             double? cpuEnergy = -1, gpuEnergy = -1;
-            if(!Storage.HasSentInitMeasurements)
+            if (!Storage.HasSentInitMeasurements)
             {
                 Console.WriteLine("Running initial energy consumption test");
 
@@ -78,7 +86,7 @@ namespace VolunteerComputing.Client
                 Task.Run(async () => await CalculateTask(conn, programId, data, useCpu));
             });
 
-            conn.On("InformFinished", () => 
+            conn.On("InformFinished", () =>
                 Console.WriteLine("There is no more work to be done. You can wait for more or check back in later."));
 
             var data = new DeviceData
@@ -87,12 +95,12 @@ namespace VolunteerComputing.Client
                 IsWindows = isWindows,
                 CpuAvailable = isIntel,
                 GpuAvailable = isCuda,
-                BaseCpuEnergyConsumption = cpuEnergy??-1,
-                BaseGpuEnergyConsumption = gpuEnergy??-1
+                BaseCpuEnergyConsumption = cpuEnergy ?? -1,
+                BaseGpuEnergyConsumption = gpuEnergy ?? -1
             };
 
             var id = await conn.InvokeAsync<int>("SendDeviceData", data);
-            if(id == -1)
+            if (id == -1)
             {
                 Console.WriteLine("Server doesn't know that device, please restart application to create new device");
                 Storage.Restart();
@@ -127,7 +135,7 @@ namespace VolunteerComputing.Client
             }
             else
             {
-                if(CheckBin(file))
+                if (CheckBin(file))
                     return file;
             }
             return AskForPath(file, "drivers for Nvidia graphic card");
@@ -147,7 +155,7 @@ namespace VolunteerComputing.Client
             {
                 foreach (var file in Directory.GetFiles(dir))
                 {
-                    if(file.Contains("Power Gadget") && file.EndsWith(".lnk"))
+                    if (file.Contains("Power Gadget") && file.EndsWith(".lnk"))
                     {
                         var powershellCommand = $"(New-Object -ComObject WScript.Shell).CreateShortcut('{file}').WorkingDirectory";
                         var result = await new ProcessStartInfo { FileName = "powershell", Arguments = $"-c \"{powershellCommand}\"" }.RunProcess();
@@ -172,7 +180,7 @@ namespace VolunteerComputing.Client
         static string FindPerfPath() //linux only
         {
             var file = "perf";
-            if(CheckBin(file))
+            if (CheckBin(file))
                 return file;
             return AskForPath(file, "perf tool installed");
         }
@@ -313,7 +321,7 @@ namespace VolunteerComputing.Client
                 EnergyData energyData;
                 if (useCpu)
                 {
-                    if(isWindows)
+                    if (isWindows)
                         energyData = await EnergyMeasurer.RunPowerLog(Storage.CpuEnergyToolPath, calculate);
                     else
                         energyData = await EnergyMeasurer.RunPerf(Storage.CpuEnergyToolPath, calculate);
@@ -328,7 +336,7 @@ namespace VolunteerComputing.Client
                     await connection.SendAsync("CalculationsFailed", useCpu);
                     return;
                 }
-                
+
                 var result = CompressionHelper.Compress(File.ReadAllText(outputFilePath));
                 File.Delete(inputFilePath);
                 File.Delete(outputFilePath);
@@ -362,14 +370,14 @@ namespace VolunteerComputing.Client
                 ZipFile.ExtractToDirectory(zipFile, dir);
                 File.Delete(zipFile);
                 var exePath = Path.Combine(dir, programData.ExeName);
-                if(!File.Exists(exePath))
+                if (!File.Exists(exePath))
                     exePath += ".exe";
-                if(!File.Exists(exePath))
+                if (!File.Exists(exePath))
                     exePath = Path.Combine(dir, Path.GetFileNameWithoutExtension(programData.ExeName));
-                
+
                 File.Move(exePath, file);
             }
-            if(!isWindows)
+            if (!isWindows)
             {
                 await Process.Start("/bin/bash", $"-c \"chmod 775 {file}\"").Await();
             }
