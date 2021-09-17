@@ -74,7 +74,8 @@ namespace VolunteerComputing.TaskServer
                 .Include(x => x.Packets)
                 .Include(x => x.Bundle)
                     .ThenInclude(x => x.ComputeTask).ThenInclude(x => x.Project)
-                .Include(x => x.Bundle).ThenInclude(x => x.Packets)
+                .Include(x => x.Bundle)
+                    .ThenInclude(x => x.Packets)
                 .AsEnumerable()
                 .GroupBy(x => x.Bundle);
             foreach (var result in bundleReults)

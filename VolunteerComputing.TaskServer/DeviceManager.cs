@@ -11,7 +11,7 @@ namespace VolunteerComputing.TaskServer
     {
         static readonly Random random = new();
 
-        static readonly Dictionary<ChoosingStrategy, Func<IEnumerable<DeviceWithStat>, double, DeviceWithStat>> StrategiesDictionary = new()
+        static readonly Dictionary<ChoosingStrategy, Func<IEnumerable<DeviceWithStat>, double, int, DeviceWithStat>> StrategiesDictionary = new()
         {
             [ChoosingStrategy.Energy] = ChooseDeviceBasedOnEnergy,
             [ChoosingStrategy.Speed] = ChooseDeviceBasedOnSpeed,
@@ -20,7 +20,7 @@ namespace VolunteerComputing.TaskServer
             [ChoosingStrategy.Energy80CutOff] = ChooseDeviceBasedOnEnergyWithCutOff80,
         };
 
-        static readonly SortedSet<DeviceWithStat> AllDevices = new();
+        static readonly Dictionary<int, SortedSet<DeviceWithStat>> AllDevices = new();
 
         public static async Task RefreshDevices(IEnumerable<DeviceData> devices, VolunteerComputingContext context)
         {
@@ -40,10 +40,10 @@ namespace VolunteerComputing.TaskServer
 
             var strategy = StrategiesDictionary[project.ChoosingStrategy];
 
-            return strategy(devices, project.ChanceToUseNewDevice);
+            return strategy(devices, project.ChanceToUseNewDevice, computeTask.Id);
         }
 
-        static DeviceWithStat ChooseDeviceBasedOnEnergy(IEnumerable<DeviceWithStat> devices, double chanceToUseNewDevice)
+        static DeviceWithStat ChooseDeviceBasedOnEnergy(IEnumerable<DeviceWithStat> devices, double chanceToUseNewDevice, int _)
         {
             if (devices.Any(d => d.EnergyEfficiency == 0) && devices.Any(d => d.EnergyEfficiency > 0) && random.NextDouble() < chanceToUseNewDevice)
             {
@@ -59,19 +59,26 @@ namespace VolunteerComputing.TaskServer
             }
         }
 
-        static DeviceWithStat ChooseDeviceBasedOnEnergyWithCutOff60(IEnumerable<DeviceWithStat> devices, double chanceToUseNewDevice)
-            => ChooseDeviceBasedOnEnergyWithCutOff(devices, chanceToUseNewDevice, 0.6);
-        static DeviceWithStat ChooseDeviceBasedOnEnergyWithCutOff80(IEnumerable<DeviceWithStat> devices, double chanceToUseNewDevice)
-            => ChooseDeviceBasedOnEnergyWithCutOff(devices, chanceToUseNewDevice, 0.8);
+        static DeviceWithStat ChooseDeviceBasedOnEnergyWithCutOff60(IEnumerable<DeviceWithStat> devices, double chanceToUseNewDevice, int computeTaskId)
+            => ChooseDeviceBasedOnEnergyWithCutOff(devices, chanceToUseNewDevice, computeTaskId, 0.6);
+        static DeviceWithStat ChooseDeviceBasedOnEnergyWithCutOff80(IEnumerable<DeviceWithStat> devices, double chanceToUseNewDevice, int computeTaskId)
+            => ChooseDeviceBasedOnEnergyWithCutOff(devices, chanceToUseNewDevice, computeTaskId, 0.8);
 
-        static DeviceWithStat ChooseDeviceBasedOnEnergyWithCutOff(IEnumerable<DeviceWithStat> devices, double chanceToUseNewDevice, double cutOff)
+        static DeviceWithStat ChooseDeviceBasedOnEnergyWithCutOff(IEnumerable<DeviceWithStat> devices, double chanceToUseNewDevice, int computeTaskId, double cutOff)
         {
-            foreach (var device in devices.Where(d => d.EnergyEfficiency > 0))
+            if (!devices.Any())
+                return null;
+            if (!AllDevices.ContainsKey(computeTaskId))
+                AllDevices[computeTaskId] = new SortedSet<DeviceWithStat>();
+            var allDevices = AllDevices[computeTaskId];
+            foreach (var device in devices)
             {
-                if(AllDevices.Contains(device))
-                    AllDevices.Remove(device);
-                AllDevices.Add(device);
+                if (allDevices.Contains(device))
+                    allDevices.Remove(device);
+                allDevices.Add(device);
             }
+
+            Console.WriteLine(string.Join(",", devices.Select(x => x.Device.Id + (x.IsCpu ? "cpu" : "gpu") + ":" + x.EnergyEfficiency)));
 
             if (devices.Any(d => d.EnergyEfficiency == 0) && devices.Any(d => d.EnergyEfficiency > 0) && random.NextDouble() < chanceToUseNewDevice)
             {
@@ -81,22 +88,24 @@ namespace VolunteerComputing.TaskServer
             }
             else
             {
-                var allDevicesCount = AllDevices.Count;
+                var allDevicesCount = allDevices.Count;
                 var exclude = allDevicesCount - (int)Math.Ceiling(allDevicesCount * cutOff);
-                var toExclude = AllDevices.TakeLast(exclude).ToList();
+                var toExclude = allDevices.TakeLast(exclude).ToList();
+
+                Console.WriteLine($"Excluding {string.Join(", ", toExclude.Select(x => x.Device.Id + (x.IsCpu ? "cpu" : "gpu")))}, count {allDevicesCount}, exclude {exclude}");
                 return devices
                     .OrderByDescending(d => d.EnergyEfficiency)
                     .FirstOrDefault(d => !toExclude.Contains(d));
             }
         }
 
-        static DeviceWithStat ChooseDeviceRandom(IEnumerable<DeviceWithStat> devices, double _)
+        static DeviceWithStat ChooseDeviceRandom(IEnumerable<DeviceWithStat> devices, double _, int __)
         {
             var count = devices.Count();
             return count == 0 ? null : devices.ElementAt(random.Next(count));
         }
 
-        static DeviceWithStat ChooseDeviceBasedOnSpeed(IEnumerable<DeviceWithStat> devices, double chanceToUseNewDevice)
+        static DeviceWithStat ChooseDeviceBasedOnSpeed(IEnumerable<DeviceWithStat> devices, double chanceToUseNewDevice, int _)
         {
             if (devices.Any(d => d.SpeedEfficiency == 0) && devices.Any(d => d.SpeedEfficiency > 0) && random.NextDouble() < chanceToUseNewDevice)
             {
