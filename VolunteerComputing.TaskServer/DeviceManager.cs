@@ -27,6 +27,7 @@ namespace VolunteerComputing.TaskServer
             foreach (var device in devices)
             {
                 await context.Entry(device).ReloadAsync();
+                await context.Entry(device).Collection(x => x.DeviceStats).LoadAsync();
             }
         }
 
@@ -123,7 +124,7 @@ namespace VolunteerComputing.TaskServer
                         d,
                         p.isCpu,
                         d.DeviceStats
-                            .FirstOrDefault(s => s.ComputeTask == computeTask && p.isCpu == s.IsCpu))));
+                            .FirstOrDefault(s => s.ComputeTaskId == computeTask.Id && p.isCpu == s.IsCpu))));
         }
     }
 }
