@@ -149,7 +149,7 @@ namespace VolunteerComputing.TaskServer.Services
 
         async Task<IEnumerable<PacketBundle>> CreateAndFindBundlesLoop(IEnumerable<DeviceData> devices, CancellationToken stoppingToken)
         {
-            int j = 0, k = 0;
+            int j = 0, k = 0, timesNothingDidWork = 0;
             while (ShouldStartWork && !stoppingToken.IsCancellationRequested)
             {
                 using var scope = scopeFactory.CreateScope();
@@ -160,6 +160,7 @@ namespace VolunteerComputing.TaskServer.Services
 
                 if (!bundles.Any())
                 {
+                    Console.WriteLine("No bundles");
                     bool noWorkTodo = !context.Bundles.Any();
                     if (noWorkTodo)
                     {
