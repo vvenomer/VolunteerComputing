@@ -144,7 +144,7 @@ namespace VolunteerComputing.TaskServer.Services
 
         async Task<IEnumerable<PacketBundle>> CreateAndFindBundlesLoop(IEnumerable<DeviceData> devices, CancellationToken stoppingToken)
         {
-            int j = 0, k = 0;
+            int j = 0, k = 0, noWorkTodoTimes = 0;
             while (ShouldStartWork && !stoppingToken.IsCancellationRequested)
             {
                 using var scope = scopeFactory.CreateScope();
@@ -157,6 +157,8 @@ namespace VolunteerComputing.TaskServer.Services
                 {
                     bool noWorkTodo = !context.Bundles.Any();
                     if (noWorkTodo)
+                        noWorkTodoTimes++;
+                    if (noWorkTodoTimes >= 2)
                     {
                         Console.SetCursorPosition(0, 4);
                         Console.WriteLine("Finished " + ++k);
@@ -165,6 +167,7 @@ namespace VolunteerComputing.TaskServer.Services
                         ShouldStartWork = false;
                         return null;
                     }
+                    await DeviceManager.RefreshDevices(devices, context);
                     await Task.Delay(2000, stoppingToken); //wait for new devices
                     continue;
                 }
