@@ -4,7 +4,6 @@ using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 using VolunteerComputing.Shared;
@@ -44,7 +43,6 @@ namespace VolunteerComputing.TaskServer.Hubs
             var device = GetDevice(d => d.Include(x => x.DeviceStats).ThenInclude(x => x.ComputeTask));
 
             var bundle = dbContext.Bundles.Find(cpu ? device.CpuWorksOnBundle : device.GpuWorksOnBundle);
-            bundle.UntilCheck--;
 
             if (cpu)
                 device.CpuWorksOnBundle = 0;
@@ -65,10 +63,9 @@ namespace VolunteerComputing.TaskServer.Hubs
                 dbContext.Add(stats);
 
             var decompressed = CompressionHelper.DecompressData(result);
-            
-            var bundleResult = new BundleResult {  Bundle = bundle }
-                .SetDataHash(decompressed);
 
+            var bundleResult = new BundleResult { Bundle = bundle }
+                .SetDataHash(decompressed);
             //get and save packets from result
             var results = JsonConvert.DeserializeObject<List<List<string>>>(Encoding.Unicode.GetString(decompressed));
             var newPackets = computeTask
@@ -123,7 +120,7 @@ namespace VolunteerComputing.TaskServer.Hubs
             device.ConnectionId = Context.ConnectionId;
             device.CpuWorksOnBundle = 0;
             device.GpuWorksOnBundle = 0;
-            while(TaskProcessorService.Id == null)
+            while (TaskProcessorService.Id == null)
                 await Task.Delay(100);
             device.TaskServerId = TaskProcessorService.Id;
 
@@ -147,13 +144,14 @@ namespace VolunteerComputing.TaskServer.Hubs
             if (bundleId == 0)
                 return;
             var bundle = await dbContext.Bundles.FindAsync(bundleId);
-            bundle.TimesSent--;
+            if (bundle is not null)
+                bundle.TimesSent--;
 
             if (isCpu)
                 device.CpuWorksOnBundle = 0;
             else
                 device.GpuWorksOnBundle = 0;
-            if(saveChanges)
+            if (saveChanges)
                 await dbContext.SaveChangesAsync();
         }
 
