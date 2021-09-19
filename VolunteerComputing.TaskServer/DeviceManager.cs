@@ -71,14 +71,12 @@ namespace VolunteerComputing.TaskServer
             if (!AllDevices.ContainsKey(computeTaskId))
                 AllDevices[computeTaskId] = new SortedSet<DeviceWithStat>();
             var allDevices = AllDevices[computeTaskId];
+
             foreach (var device in devices)
             {
-                if (allDevices.Contains(device))
-                    allDevices.Remove(device);
+                allDevices.RemoveWhere(d => d.Equals(device));
                 allDevices.Add(device);
             }
-
-            Console.WriteLine(string.Join(",", devices.Select(x => x.Device.Id + (x.IsCpu ? "cpu" : "gpu") + ":" + x.EnergyEfficiency)));
 
             if (devices.Any(d => d.EnergyEfficiency == 0) && devices.Any(d => d.EnergyEfficiency > 0) && random.NextDouble() < chanceToUseNewDevice)
             {
@@ -90,9 +88,8 @@ namespace VolunteerComputing.TaskServer
             {
                 var allDevicesCount = allDevices.Count;
                 var exclude = allDevicesCount - (int)Math.Ceiling(allDevicesCount * cutOff);
-                var toExclude = allDevices.TakeLast(exclude).ToList();
+                var toExclude = allDevices.Take(exclude).ToList();
 
-                Console.WriteLine($"Excluding {string.Join(", ", toExclude.Select(x => x.Device.Id + (x.IsCpu ? "cpu" : "gpu")))}, count {allDevicesCount}, exclude {exclude}");
                 return devices
                     .OrderByDescending(d => d.EnergyEfficiency)
                     .FirstOrDefault(d => !toExclude.Contains(d));
