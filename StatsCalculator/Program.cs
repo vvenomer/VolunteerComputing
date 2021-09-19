@@ -76,7 +76,7 @@ namespace StatsCalculator
 
                 str += "</tr>";
             }
-            return str + $"</table><br>Time Elapsed {TimeSpan.FromSeconds(fullTimeInSeconds)}, Total Energy {energyUsedDuringFreeTime} J, Total Working Energy: {estimatedEnergyWhileWorking} J, Total Not Working Energy: {estimatedEnergyWhileNotWorking} J, Average Power {energyUsedDuringFreeTime / fullTimeInSeconds} W</body>";
+            return str + $"</table><br>Time Elapsed: {fullTimeInSeconds} s ({TimeSpan.FromSeconds(fullTimeInSeconds)}), Total Energy: {energyUsedDuringFreeTime} J, Total Working Energy: {estimatedEnergyWhileWorking} J, Total Not Working Energy: {estimatedEnergyWhileNotWorking} J, Average Power: {energyUsedDuringFreeTime / fullTimeInSeconds} W</body>";
 
         }
 
