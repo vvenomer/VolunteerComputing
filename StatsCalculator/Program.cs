@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Json;
@@ -12,14 +13,14 @@ namespace StatsCalculator
     {
         static Dictionary<int, string> deviceIdToName = new()
         {
-            [15] = "des04",
-            [16] = "des03",
-            [17] = "des02",
-            [18] = "my",
-            [19] = "work",
-            [20] = "apl09",
-            [21] = "apl10",
-            [22] = "des01"
+            [34] = "des01",
+            [35] = "des02",
+            [36] = "des07",
+            [37] = "des03",
+            [38] = "apl09",
+            [39] = "apl10",
+            [40] = "my",
+            [41] = "work",
         };
 
         static async Task Main(string[] args)
@@ -39,10 +40,49 @@ namespace StatsCalculator
                 .SelectMany(d => d.DeviceStats.Select(s => new DeviceWithStat { DeviceData = d, DeviceStat = s }))
                 .ToList();
 
+            File.WriteAllText("index.html", ToHtmlTable(procesingUnits, projectLastTime));
+        }
 
+        static string ToHtmlTable(List<DeviceWithStat> procesingUnits, double fullTimeInSeconds)
+        {
+            var str = "<html><head><script src=\"https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js\"></script></head><body>" +
+                "<table class=\"table table-striped\"><tr><th>Name</th><th>Time</th><th>Power</th><th>Count</th><th>Base</th><th>Avg Time</th><th>Avg Power Total</th><th>Avg Power</th><th>Estimated Energy While Working</th><th>Estimated Energy While Not Working</th><th>Full Estimated Energy</th></tr>";
 
-            var energyUsedDuringFreeTimes = procesingUnits.Select(p => p.FullEstimatedEnergy(projectLastTime)).ToList();
-            var energyUsedDuringFreeTime = energyUsedDuringFreeTimes.Sum();
+            var estimatedEnergyWhileWorking = 0.0;
+            var estimatedEnergyWhileNotWorking = 0.0;
+
+            var energyUsedDuringFreeTime = 0.0;
+            foreach (var procesingUnit in procesingUnits)
+            {
+                str += "<tr>";
+
+                str += WrapTd(procesingUnit.PUid);
+                str += WrapTd(procesingUnit.DeviceStat.TimeSum);
+                str += WrapTd(procesingUnit.DeviceStat.EnergySum);
+                str += WrapTd(procesingUnit.DeviceStat.Count);
+                str += WrapTd(procesingUnit.BaseEnergyConsumption);
+                str += WrapTd(procesingUnit.AverageTime);
+                str += WrapTd(procesingUnit.AveragePowerTotal);
+                str += WrapTd(procesingUnit.AveragePower);
+                var x = procesingUnit.EstimatedEnergyWhileWorking;
+                estimatedEnergyWhileWorking += x;
+                str += WrapTd(x);
+                x = procesingUnit.EstimatedEnergyWhileNotWorking(fullTimeInSeconds);
+                estimatedEnergyWhileNotWorking += x;
+                str += WrapTd(x);
+                x = procesingUnit.FullEstimatedEnergy(fullTimeInSeconds);
+                energyUsedDuringFreeTime += x;
+                str += WrapTd(x);
+
+                str += "</tr>";
+            }
+            return str + $"</table><br>Time Elapsed: {fullTimeInSeconds} s ({TimeSpan.FromSeconds(fullTimeInSeconds)}), Total Energy: {energyUsedDuringFreeTime} J, Total Working Energy: {estimatedEnergyWhileWorking} J, Total Not Working Energy: {estimatedEnergyWhileNotWorking} J, Average Power: {energyUsedDuringFreeTime / fullTimeInSeconds} W</body>";
+
+        }
+
+        static string WrapTd<T>(T str)
+        {
+            return $"<td>{str}</td>";
         }
 
         class DeviceWithStat
@@ -50,7 +90,7 @@ namespace StatsCalculator
             public DeviceData DeviceData { get; set; }
             public DeviceStat DeviceStat { get; set; }
 
-            public string PUid => deviceIdToName[DeviceData.Id] + "-" + (DeviceStat.IsCpu ? "cpu" : "gpu");
+            public string PUid => deviceIdToName[DeviceData.Id] + "-" + (DeviceStat.IsCpu ? "cpu" : "gpu") + "-" + DeviceStat.ComputeTaskId;
 
             public double AverageTime => DeviceStat.TimeSum / DeviceStat.Count;
             

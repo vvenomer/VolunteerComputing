@@ -155,6 +155,7 @@ namespace VolunteerComputing.TaskServer.Services
 
                 if (!bundles.Any())
                 {
+                    Console.WriteLine("No bundles");
                     bool noWorkTodo = !context.Bundles.Any();
                     if (noWorkTodo)
                         noWorkTodoTimes++;

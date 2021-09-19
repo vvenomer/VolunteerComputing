@@ -225,8 +225,9 @@ namespace VolunteerComputing.Client
                     await conn.StartAsync();
                     break;
                 }
-                catch
+                catch(Exception ex)
                 {
+                    Console.WriteLine(ex.Message);
                 }
             } while (true);
             return conn;
