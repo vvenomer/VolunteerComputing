@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using VolunteerComputing.Shared;
@@ -59,7 +60,6 @@ namespace VolunteerComputing.TaskServer
                 newPackets.RemoveRange(extendedPackets);
             }
             var newBundles = CreateBundles(newPackets, tasks, devices).ToList();
-
             context.Bundles.AddRange(newBundles);
             await context.SaveChangesAsync();
 
@@ -81,16 +81,18 @@ namespace VolunteerComputing.TaskServer
             foreach (var result in bundleReults)
             {
                 var bundle = result.Key;
-                if (bundle.UntilCheck > 0)
+                var min = bundle?.ComputeTask.Project.MinAgreeingClients;
+                if (bundle.TimesSent != min || bundle.UntilCheck + min != result.Count())
                     continue;
-                var min = result.Key.ComputeTask.Project.MinAgreeingClients;
+
                 var mostAgreedResult = result
-                    .GroupBy(x => x.DataHash)
+                    .GroupBy(x => BitConverter.ToString(x.DataHash))
                     .OrderByDescending(x => x.Count())
                     .FirstOrDefault()
                     .ToList();
                 if (mostAgreedResult.Count < min)
                 {
+                    Console.WriteLine($"Not enough volunteers agree on bundle {bundle.Id}, ({mostAgreedResult.Count}/{min}, results {result.Count()})");
                     bundle.UntilCheck++;
                     bundle.TimesSent--;
                     continue;
@@ -117,6 +119,7 @@ namespace VolunteerComputing.TaskServer
                 packets.AddRange(toKeep.Packets);
             }
             await context.SaveChangesAsync();
+
             return packets;
         }
 
@@ -158,7 +161,7 @@ namespace VolunteerComputing.TaskServer
                         addedCount++;
                     }
                     if (addedCount == inputPacketTypes.Count)
-                        yield return new PacketBundle { ComputeTask = computeTask, Packets = selectedPackets, UntilCheck = computeTask.Project.MinAgreeingClients, BundleResults = new List<BundleResult>() };
+                        yield return new PacketBundle { ComputeTask = computeTask, Packets = selectedPackets, BundleResults = new List<BundleResult>() };
                     else
                         break;
                 }
