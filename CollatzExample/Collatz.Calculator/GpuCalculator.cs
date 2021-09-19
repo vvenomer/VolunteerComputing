@@ -18,7 +18,7 @@ namespace Collatz.Calculator
 			{
 				int n = start + i;
 
-				for (int steps = 1; steps < max; steps++)
+				for (int steps = 0; steps < max; steps++)
 				{
 					if ((n & 1) == 1)
 						n = (n << 1) + n + 1;
