@@ -15,9 +15,7 @@ services:
             - task_server
         container_name: nginx
     management_server:
-        build:
-            dockerfile: ./VolunteerComputing.ManagementServer/Dockerfile
-            context: ./
+        build: ./VolunteerComputing.ManagementServer
         volumes:
             - ./VolunteerComputing.ManagementServer/Server/appsettings.json:/src/Server/appsettings.json
             - ./VolunteerComputing.ManagementServer/Server/appsettings.json:/app/appsettings.json

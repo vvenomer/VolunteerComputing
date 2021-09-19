@@ -5,8 +5,8 @@ EXPOSE 5000
 FROM mcr.microsoft.com/dotnet/sdk:5.0 AS build
 WORKDIR /src
 COPY . .
-RUN dotnet restore "VolunteerComputing.ManagementServer/Server/VolunteerComputing.ManagementServer.Server.csproj"
-WORKDIR "/src/VolunteerComputing.ManagementServer/Server"
+RUN dotnet restore "Server/VolunteerComputing.ManagementServer.Server.csproj"
+WORKDIR "/src/Server"
 RUN dotnet build "VolunteerComputing.ManagementServer.Server.csproj" -c Release -o /app/build
 
 FROM build AS publish
