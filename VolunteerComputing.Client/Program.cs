@@ -360,7 +360,7 @@ namespace VolunteerComputing.Client
         static async Task DownloadProgram(HubConnection connection, int programId, bool useCpu, string dir, string file)
         {
             var programData = await connection.InvokeAsync<ProgramData>("GetProgram", programId, isWindows, useCpu);
-            if (programData.ExeName is null)
+            if (string.IsNullOrEmpty(programData.ExeName))
             {
                 File.WriteAllBytes(file, CompressionHelper.DecompressData(programData.Program));
             }

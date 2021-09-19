@@ -245,13 +245,13 @@
             return;
         }
 
-        var parsedComputeTasks = computeTasks.Select(c => new ComputeTask
+        var parsedComputeTasks = computeTasks.Select((c, i) => new ComputeTask
         {
             WindowsCpuProgram = c.WindowsCpuProgram,
             WindowsGpuProgram = c.WindowsGpuProgram,
             LinuxCpuProgram = c.LinuxCpuProgram,
             LinuxGpuProgram = c.LinuxGpuProgram,
-            ExeFilename = c.ExeFilename,
+            ExeFilename = areZipFiles[i] ? c.ExeFilename : null,
             PacketTypes = c.PacketTypes.Select(t => new PacketTypeToComputeTask
             {
                 IsInput = t.IsInput,
