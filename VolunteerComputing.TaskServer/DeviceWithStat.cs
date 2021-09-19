@@ -21,6 +21,8 @@ namespace VolunteerComputing.TaskServer
 
                 time = stat.TimeSum / stat.Count;
                 energy = stat.EnergySum / stat.Count - baseConsumption;
+                if(energy < 0)
+                    energy = double.Epsilon;
             }
             SpeedEfficiency = 1 / time;
             EnergyEfficiency = 1 / time / energy;
