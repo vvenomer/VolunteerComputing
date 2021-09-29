@@ -99,7 +99,7 @@
         Project Project { get; set; } = new Project() { MinAgreeingClients = 1, ChanceToUseNewDevice = 0.3, ChoosingStrategy = ChoosingStrategy.Energy };
         string saveProjectStatus = "";
         string sendPacketStatus = "";
-        long maxSize = 1024 * 1024;
+        long maxSize = 1024 * 1024 * 128;
 
         protected override async Task OnInitializedAsync()
     {
