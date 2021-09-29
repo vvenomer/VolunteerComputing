@@ -46,7 +46,10 @@ namespace VolunteerComputing.TaskServer
                 .Include(x => x.PacketTypes).ThenInclude(x => x.PacketType)
                 .ToList();
 
-            newPackets.AddRange(await FindFinishedBundles(context));
+            var packetsFromFinishedBundles = await FindFinishedBundles(context);
+            if (packetsFromFinishedBundles is null)
+                return null;
+            newPackets.AddRange(packetsFromFinishedBundles);
 
             var existingBundles = context.Bundles
                 .Include(x => x.Packets)
@@ -80,45 +83,58 @@ namespace VolunteerComputing.TaskServer
                 .GroupBy(x => x.Bundle);
             foreach (var result in bundleReults)
             {
-                var bundle = result.Key;
-                var min = bundle?.ComputeTask.Project.MinAgreeingClients;
-                if (bundle.TimesSent != min || bundle.UntilCheck + min != result.Count())
-                    continue;
-
-                var mostAgreedResult = result
-                    .GroupBy(x => BitConverter.ToString(x.DataHash))
-                    .OrderByDescending(x => x.Count())
-                    .FirstOrDefault()
-                    .ToList();
-                if (mostAgreedResult.Count < min)
+                using var transaction = context.Database.BeginTransaction(System.Data.IsolationLevel.RepeatableRead);
+                try
                 {
-                    Console.WriteLine($"Not enough volunteers agree on bundle {bundle.Id}, ({mostAgreedResult.Count}/{min}, results {result.Count()})");
-                    bundle.UntilCheck++;
-                    bundle.TimesSent--;
-                    continue;
-                }
-                var toKeep = mostAgreedResult.FirstOrDefault();
-                var toRemove = result
-                    .Where(x => x.Id != toKeep.Id)
-                    .SelectMany(x => x.Packets);
+                    var bundle = result.Key;
+                    var min = bundle?.ComputeTask.Project.MinAgreeingClients;
+                    if (bundle.TimesSent != min || bundle.UntilCheck + min != result.Count())
+                        continue;
 
-                RemovePackets(context, toRemove);
-                foreach (var packet in toKeep.Packets)
+                    var mostAgreedResult = result
+                        .GroupBy(x => BitConverter.ToString(x.DataHash))
+                        .OrderByDescending(x => x.Count())
+                        .FirstOrDefault()
+                        .ToList();
+                    if (mostAgreedResult.Count < min)
+                    {
+                        Console.WriteLine($"Not enough volunteers agree on bundle {bundle.Id}, ({mostAgreedResult.Count}/{min}, results {result.Count()})");
+                        bundle.UntilCheck++;
+                        bundle.TimesSent--;
+                        await context.SaveChangesAsync();
+                        transaction.Commit();
+                        continue;
+                    }
+                    var toKeep = mostAgreedResult.FirstOrDefault();
+                    var toRemove = result
+                        .Where(x => x.Id != toKeep.Id)
+                        .SelectMany(x => x.Packets);
+
+                    RemovePackets(context, toRemove);
+                    foreach (var packet in toKeep.Packets)
+                    {
+                        packet.BundleId = null;
+                        packet.Bundle = null;
+                        packet.BundleResultId = null;
+                        packet.BundleResult = null;
+                        packet.DeviceWorkedOnIt = null;
+                    }
+                    context.BundleResults.RemoveRange(result);
+
+                    RemovePackets(context, bundle.Packets);
+                    context.Bundles.Remove(bundle);
+
+                    packets.AddRange(toKeep.Packets);
+                    await context.SaveChangesAsync();
+                    transaction.Commit();
+                }
+                catch(Exception ex)
                 {
-                    packet.BundleId = null;
-                    packet.Bundle = null;
-                    packet.BundleResultId = null;
-                    packet.BundleResult = null;
-                    packet.DeviceWorkedOnIt = null;
+                    Console.WriteLine($"Rollbacking transaction due to: {ex.Message}");
+                    transaction.Rollback();
+                    return null;
                 }
-                context.BundleResults.RemoveRange(result);
-
-                RemovePackets(context, bundle.Packets);
-                context.Bundles.Remove(bundle);
-
-                packets.AddRange(toKeep.Packets);
             }
-            await context.SaveChangesAsync();
 
             return packets;
         }
