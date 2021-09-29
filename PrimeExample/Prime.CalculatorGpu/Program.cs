@@ -18,12 +18,21 @@ namespace Prime.Calculator
             {
                 int n = start + i;
                 if (n <= 3)
+                {
                     stepsArray[i] = n > 1 ? 1 : 0;
+                    return;
+                }
                 if (n % 2 == 0 || n % 3 == 0)
+                {
                     stepsArray[i] = 0;
+                    return;
+                }
                 for (var j = 5; j * j <= n; j += 6)
                     if (n % j == 0 || n % (j + 2) == 0)
+                    {
                         stepsArray[i] = 0;
+                        return;
+                    }
                 stepsArray[i] = 1;
             }
         }
@@ -53,15 +62,9 @@ namespace Prime.Calculator
                     var currentCount = c > packetSize ? packetSize : c;
                     kernel(currentCount, numbers.Start + i, currentCount, buffer.View);
 
-                    using var resultBuffer = accelerator.Allocate<int>(1);
-
                     accelerator.Synchronize();
 
-                    accelerator.Reduce<int, AddInt32>(accelerator.DefaultStream, buffer, resultBuffer);
-
-                    accelerator.Synchronize();
-
-                    result += resultBuffer.GetAsArray()[0];
+                    result += accelerator.Reduce<int, AddInt32>(accelerator.DefaultStream, buffer.View.GetSubView(0, currentCount));
                 }
             }
 

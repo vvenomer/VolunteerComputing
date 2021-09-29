@@ -152,7 +152,8 @@ namespace VolunteerComputing.TaskServer.Services
                 Console.SetCursorPosition(0, 1);
                 Console.WriteLine("Finding tasks" + Dots(ref j, 3));
                 var bundles = await PacketManager.CreateAndFindBundles(devices, context);
-
+                if (bundles is null)
+                    continue;
                 if (!bundles.Any())
                 {
                     Console.WriteLine("No bundles");

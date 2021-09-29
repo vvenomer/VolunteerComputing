@@ -50,6 +50,12 @@ namespace VolunteerComputing.TaskServer.Hubs
                 device.GpuWorksOnBundle = 0;
             await dbContext.SaveChangesAsync();
 
+            if(bundle is null)
+            {
+                Console.WriteLine("Error, bundle doesn't exist");
+                return;
+            }
+
             var computeTask = dbContext.ComputeTasks
                 .Include(x => x.PacketTypes)
                 .ThenInclude(x => x.PacketType)
